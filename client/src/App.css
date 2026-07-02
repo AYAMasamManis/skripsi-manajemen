@@ -1,0 +1,14 @@
+/* src/App.css */
+
+#root {
+  width: 100%;        /* Memaksa konten menggunakan seluruh lebar layar */
+  margin: 0;          /* Menghilangkan margin otomatis yang bikin konten ke tengah */
+  padding: 0;         /* Menghilangkan padding bawaan */
+  text-align: left;   /* Mengatur teks kembali ke kiri agar dashboard terlihat rapi */
+}
+
+/* Tambahan agar saat di-scroll tidak ada spasi putih di pinggir */
+.container {
+  width: 100%;
+  box-sizing: border-box;
+}
