@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../config/api';
 
 function Settings() {
   const userVa = JSON.parse(localStorage.getItem('user_va'));
@@ -22,7 +22,7 @@ function Settings() {
   const handleUpdate = (e) => {
     e.preventDefault();
     setLoading(true);
-    axios.post('http://localhost/skripsi-manajemen/api/update_profile.php', formData)
+    axios.post('update_profile.php', formData)
       .then(res => {
         if(res.data.status === 'success') {
           // UPDATE DATA DI BROWSER (KTP DIGITAL)

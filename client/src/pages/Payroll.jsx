@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import axios from 'axios'
+import axios from '../config/api'
 import { Link } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
@@ -42,8 +42,8 @@ function Payroll() {
     try {
       const timestamp = Date.now();
       const [resProyek, resGaji] = await Promise.all([
-        axios.get(`http://localhost/skripsi-manajemen/api/get_projects.php?t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_payroll.php?t=${timestamp}`)
+        axios.get(`get_projects.php?t=${timestamp}`),
+        axios.get(`get_payroll.php?t=${timestamp}`)
       ]);
       setProyek(resProyek.data);
       setDataGaji(resGaji.data);
@@ -71,7 +71,7 @@ function Payroll() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    axios.post('http://localhost/skripsi-manajemen/api/add_payroll.php', formData)
+    axios.post('add_payroll.php', formData)
       .then(() => {
         setFormData({ ...formData, nama_karyawan: '', hari_kerja: '', kasbon: '0' });
         fetchData();
@@ -82,7 +82,7 @@ function Payroll() {
 
   const handleDelete = (id) => {
     if (window.confirm("Hapus riwayat gaji ini secara permanen?")) {
-      axios.post('http://localhost/skripsi-manajemen/api/delete_payroll.php', { id }).then(() => fetchData());
+      axios.post('delete_payroll.php', { id }).then(() => fetchData());
     }
   }
 

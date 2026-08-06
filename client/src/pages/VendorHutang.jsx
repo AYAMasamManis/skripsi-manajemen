@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import axios from 'axios'
+import axios from '../config/api'
 import { Link } from 'react-router-dom'
 import * as XLSX from 'xlsx' // Pastikan library ini sudah terinstall
 
@@ -14,7 +14,7 @@ function VendorHutang() {
         try {
             setLoading(true);
             const timestamp = Date.now();
-            const res = await axios.get(`http://localhost/skripsi-manajemen/api/get_vendor_debts.php?t=${timestamp}`)
+            const res = await axios.get(`get_vendor_debts.php?t=${timestamp}`)
             if (isMounted) {
                 setDebts(res.data);
                 setLoading(false);

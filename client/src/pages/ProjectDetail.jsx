@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import axios from 'axios'
+import axios, { apiAssetUrl } from '../config/api'
 import * as XLSX from 'xlsx';
 
 function ProjectDetail() {
@@ -38,9 +38,9 @@ function ProjectDetail() {
       setLoading(true);
       const timestamp = Date.now();
       const [resProject, resTrans, resProgress] = await Promise.all([
-        axios.get(`http://localhost/skripsi-manajemen/api/get_projects.php?t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_transactions.php?project_id=${id}&t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_progress.php?project_id=${id}&t=${timestamp}`)
+        axios.get(`get_projects.php?t=${timestamp}`),
+        axios.get(`get_transactions.php?project_id=${id}&t=${timestamp}`),
+        axios.get(`get_progress.php?project_id=${id}&t=${timestamp}`)
       ]);
       
       const currentProject = Array.isArray(resProject.data) 
@@ -80,7 +80,7 @@ function ProjectDetail() {
         const data = XLSX.utils.sheet_to_json(ws, { range: headerIndex, defval: '' });
 
         if (!data.length) throw new Error('Sheet Excel tidak memiliki data.');
-        const response = await axios.post('http://localhost/skripsi-manajemen/api/import_transactions.php', {
+        const response = await axios.post('import_transactions.php', {
           project_id: id,
           rows: data,
           changed_by: userVa?.nama_lengkap || userVa?.username || 'Excel Import',
@@ -103,7 +103,7 @@ function ProjectDetail() {
     setStackFiles([]); 
     setShowStackModal(true);
     try {
-      const res = await axios.get(`http://localhost/skripsi-manajemen/api/get_transaction_proofs.php?transaction_id=${tId}&t=${Date.now()}`);
+      const res = await axios.get(`get_transaction_proofs.php?transaction_id=${tId}&t=${Date.now()}`);
       setStackFiles(Array.isArray(res.data) ? res.data : []);
     } catch (err) { console.error("Gagal ambil stack:", err); }
   }
@@ -114,19 +114,19 @@ function ProjectDetail() {
     data.append('transaction_id', activeTransId);
     data.append('bukti', newStackFile);
     try {
-      await axios.post('http://localhost/skripsi-manajemen/api/add_transaction_proof.php', data, {
+      await axios.post('add_transaction_proof.php', data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setNewStackFile(null);
-      const res = await axios.get(`http://localhost/skripsi-manajemen/api/get_transaction_proofs.php?transaction_id=${activeTransId}&t=${Date.now()}`);
+      const res = await axios.get(`get_transaction_proofs.php?transaction_id=${activeTransId}&t=${Date.now()}`);
       setStackFiles(Array.isArray(res.data) ? res.data : []);
     } catch { alert("Gagal upload"); }
   }
 
   const handleDeleteStackProof = async (proofId) => {
     if (proofId && window.confirm("Hapus bukti transfer ini?")) {
-      await axios.post('http://localhost/skripsi-manajemen/api/delete_transaction_proof.php', { id: proofId });
-      const res = await axios.get(`http://localhost/skripsi-manajemen/api/get_transaction_proofs.php?transaction_id=${activeTransId}&t=${Date.now()}`);
+      await axios.post('delete_transaction_proof.php', { id: proofId });
+      const res = await axios.get(`get_transaction_proofs.php?transaction_id=${activeTransId}&t=${Date.now()}`);
       setStackFiles(Array.isArray(res.data) ? res.data : []);
     }
   }
@@ -139,7 +139,7 @@ function ProjectDetail() {
     data.append('user_id', userVa?.id || 1); 
     data.append('foto', fotoProgress);
     data.append('keterangan', ketProgress);
-    axios.post('http://localhost/skripsi-manajemen/api/upload_progress.php', data, {
+    axios.post('upload_progress.php', data, {
         headers: { 'Content-Type': 'multipart/form-data' }
     }).then(() => {
         setFotoProgress(null); setKetProgress(''); fetchData(); 
@@ -149,13 +149,13 @@ function ProjectDetail() {
 
   const handleDeleteProgress = (fotoId) => {
     if (window.confirm("Hapus foto progress ini?")) {
-      axios.post('http://localhost/skripsi-manajemen/api/delete_progress.php', { id: fotoId }).then(() => fetchData());
+      axios.post('delete_progress.php', { id: fotoId }).then(() => fetchData());
     }
   };
 
   const handleDeleteTransaction = (transactionId) => {
     if (window.confirm("Hapus transaksi ini secara permanen?")) {
-      axios.post('http://localhost/skripsi-manajemen/api/delete_transaction.php', { id: transactionId }).then(() => { cancelEdit(); fetchData(); });
+      axios.post('delete_transaction.php', { id: transactionId }).then(() => { cancelEdit(); fetchData(); });
     }
   };
 
@@ -191,7 +191,7 @@ function ProjectDetail() {
   const weightedNominal = weightedRabTotal * weightedRealization;
 
   const handleUpdateStatus = (newStatus) => {
-    axios.post('http://localhost/skripsi-manajemen/api/update_status.php', { id, status: newStatus }).then(() => fetchData());
+    axios.post('update_status.php', { id, status: newStatus }).then(() => fetchData());
   }
 
   const downloadImportTemplate = () => {
@@ -390,7 +390,7 @@ function ProjectDetail() {
     data.append('vendor', formData.vendor);
     data.append('pic', formData.pic);
     if (file) data.append('bukti', file);
-    let url = isEditing ? 'http://localhost/skripsi-manajemen/api/edit_transaction.php' : 'http://localhost/skripsi-manajemen/api/add_transaction.php';
+    let url = isEditing ? 'edit_transaction.php' : 'add_transaction.php';
     if (isEditing) data.append('id', editId); 
     axios.post(url, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -524,7 +524,7 @@ function ProjectDetail() {
           {progressFotos.map(foto => (
             <div key={foto.id} className="gallery-item">
               <button className="delete-photo-btn" onClick={() => handleDeleteProgress(foto.id)}>✕</button>
-              <img src={`http://localhost/skripsi-manajemen/api/uploads/${foto.foto_path || foto.foto}`} alt="progress" onClick={() => setSelectedImage(`http://localhost/skripsi-manajemen/api/uploads/${foto.foto_path || foto.foto}`)} />
+              <img src={apiAssetUrl(`uploads/${foto.foto_path || foto.foto}`)} alt="progress" onClick={() => setSelectedImage(apiAssetUrl(`uploads/${foto.foto_path || foto.foto}`))} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', padding: '10px', background: 'rgba(0,0,0,0.75)', color: '#fff', fontSize: '9px', fontWeight: '600' }}>{foto.keterangan}</div>
             </div>
           ))}
@@ -611,7 +611,7 @@ function ProjectDetail() {
                     {stackFiles && stackFiles.length > 0 ? stackFiles.map(s => (
                         <div key={s.id} className="gallery-item">
                              <button className="delete-photo-btn" onClick={() => handleDeleteStackProof(s.id)} style={{width:'20px', height:'20px', fontSize:'8px'}}>✕</button>
-                             <img src={`http://localhost/skripsi-manajemen/api/uploads/${s.file_path || s.bukti || s.file}`} alt="proof" onClick={() => setSelectedImage(`http://localhost/skripsi-manajemen/api/uploads/${s.file_path || s.bukti || s.file}`)} />
+                             <img src={apiAssetUrl(`uploads/${s.file_path || s.bukti || s.file}`)} alt="proof" onClick={() => setSelectedImage(apiAssetUrl(`uploads/${s.file_path || s.bukti || s.file}`))} />
                         </div>
                     )) : <p style={{gridColumn:'span 3', textAlign:'center', color:'#888', fontSize:'12px'}}>Belum ada bukti transfer.</p>}
                 </div>

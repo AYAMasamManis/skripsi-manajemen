@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../config/api';
 
 function SalarySlip() {
     const { id } = useParams();
@@ -10,7 +10,7 @@ function SalarySlip() {
 
     useEffect(() => {
         // Ambil data dengan timestamp agar tidak kena cache browser
-        axios.get(`http://localhost/skripsi-manajemen/api/get_payroll_detail.php?id=${id}&t=${Date.now()}`)
+        axios.get(`get_payroll_detail.php?id=${id}&t=${Date.now()}`)
             .then(res => {
                 console.log("Data dari API:", res.data); // CEK DI KONSOL F12
                 

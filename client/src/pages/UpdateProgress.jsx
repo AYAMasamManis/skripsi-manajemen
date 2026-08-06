@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../config/api';
 import { useNavigate } from 'react-router-dom';
 
 function UpdateProgress() {
@@ -16,7 +16,7 @@ function UpdateProgress() {
     // Tendang jika bukan karyawan atau belum login
     if (!user) { navigate('/login'); return; }
     
-    axios.get('http://localhost/skripsi-manajemen/api/get_projects.php')
+    axios.get('get_projects.php')
       .then(res => setProjects(res.data))
       .catch(err => console.error("Gagal ambil proyek", err));
   }, [user, navigate]);
@@ -33,7 +33,7 @@ function UpdateProgress() {
     data.append('keterangan', ket);
 
     try {
-      const res = await axios.post('http://localhost/skripsi-manajemen/api/upload_progress.php', data);
+      const res = await axios.post('upload_progress.php', data);
       if (res.data.status === 'success') {
         alert("Laporan Berhasil Terkirim! 🚀");
         setKet('');

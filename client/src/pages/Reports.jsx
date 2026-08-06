@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import axios from 'axios'
+import axios from '../config/api'
 import { Link } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { 
@@ -23,7 +23,7 @@ function Reports() {
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axios.get(`http://localhost/skripsi-manajemen/api/get_monthly_reports.php?year=${selectedYear}&t=${Date.now()}`)
+            const res = await axios.get(`get_monthly_reports.php?year=${selectedYear}&t=${Date.now()}`)
             if (res.data) {
                 setReportData(res.data.monthly_stats || []);
                 setCategoryData(res.data.category_distribution || []);

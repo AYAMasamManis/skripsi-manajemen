@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import axios from 'axios';
+import axios from '../config/api';
 import { useNavigate } from 'react-router-dom';
 
 function Login() {
@@ -17,7 +17,7 @@ function Login() {
     setError('');
     try {
       // PERBAIKAN: Menggunakan path relatif agar jalan di hosting manapun
-      const res = await axios.post('/api/login.php', formData);
+      const res = await axios.post('login.php', formData);
       
       if (res.data.success) {
         localStorage.setItem('user_va', JSON.stringify(res.data.user)); 

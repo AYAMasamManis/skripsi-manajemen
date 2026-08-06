@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import axios from 'axios'
+import axios from '../config/api'
 import { Link, useNavigate } from 'react-router-dom'
 import CashFlowChart from '../components/CashFlowChart' 
 import ProjectPayChart from '../components/ProjectPayChart'
@@ -39,10 +39,10 @@ function Home() {
     try {
       const timestamp = Date.now();
       const [resProyek, resTransaksi, resStats, resProjectPay] = await Promise.all([
-        axios.get(`http://localhost/skripsi-manajemen/api/get_projects.php?t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_transactions.php?global=true&t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_statistics.php?t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_project_pay_chart.php?t=${timestamp}`)
+        axios.get(`get_projects.php?t=${timestamp}`),
+        axios.get(`get_transactions.php?global=true&t=${timestamp}`),
+        axios.get(`get_statistics.php?t=${timestamp}`),
+        axios.get(`get_project_pay_chart.php?t=${timestamp}`)
       ]);
       
       // Proteksi agar data selalu berupa array/object yang valid
@@ -101,7 +101,7 @@ function Home() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    axios.post('http://localhost/skripsi-manajemen/api/add_project.php', { ...formData, changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' })
+    axios.post('add_project.php', { ...formData, changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' })
       .then(() => {
         setFormData({ nama_proyek: '', klien: '', budget_total: '' })
         fetchData()
@@ -123,7 +123,7 @@ function Home() {
   const handleUpdate = (e) => {
     e.preventDefault();
     const finalData = { ...editData, budget_total: editData.budget_total.toString().replace(/\./g, ''), changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' };
-    axios.post('http://localhost/skripsi-manajemen/api/update_project.php', finalData)
+    axios.post('update_project.php', finalData)
       .then(() => {
         alert("Proyek Berhasil Diupdate!");
         setShowEditModal(false);
@@ -134,7 +134,7 @@ function Home() {
 
   const handleDelete = (id) => {
     if (window.confirm("Hapus proyek secara permanen?")) {
-      axios.post('http://localhost/skripsi-manajemen/api/delete_project.php', { id }).then(() => fetchData())
+      axios.post('delete_project.php', { id }).then(() => fetchData())
     }
   }
 
@@ -158,7 +158,7 @@ function Home() {
     setShowBudgetHistory(true);
     setBudgetHistory([]);
     try {
-      const response = await axios.get(`http://localhost/skripsi-manajemen/api/get_budget_history.php?project_id=${project.id}&t=${Date.now()}`);
+      const response = await axios.get(`get_budget_history.php?project_id=${project.id}&t=${Date.now()}`);
       setBudgetHistory(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.error(err);
@@ -183,7 +183,7 @@ function Home() {
 
         if (!normalizedRows.length) throw new Error('Tidak ada baris dengan kolom Nama Proyek, Klien, dan Total Kontrak.');
         for (const row of normalizedRows) {
-          await axios.post('http://localhost/skripsi-manajemen/api/add_project.php', {
+          await axios.post('add_project.php', {
             ...row,
             budget_total: Number(String(row.budget_total).replace(/[^0-9.-]/g, '')),
             changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos',
