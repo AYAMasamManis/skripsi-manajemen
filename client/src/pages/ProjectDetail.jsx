@@ -73,7 +73,7 @@ function ProjectDetail() {
         const headerIndex = matrix.findIndex((row) => {
           const keys = row.map((cell) => String(cell).toLowerCase().replace(/[^a-z0-9]+/g, ''));
           const hasIdentity = keys.some((key) => ['no', 'nama', 'namamaterial', 'namabarang', 'uraian', 'material', 'item'].includes(key));
-          const hasAmount = keys.some((key) => ['total', 'grandtotal', 'jumlah', 'jumlahharga', 'hargasatuan', 'harga'].includes(key));
+          const hasAmount = keys.some((key) => ['total', 'grandtotal', 'jumlah', 'jumlahharga', 'jmlhharga', 'hargasatuan', 'hrgsatuan', 'harga', 'nominal'].some((name) => key.startsWith(name)));
           return hasIdentity && hasAmount;
         });
         if (headerIndex < 0) throw new Error('Baris judul kolom Excel tidak ditemukan.');
@@ -179,10 +179,86 @@ function ProjectDetail() {
 
   const expensePercent = targetKontrak > 0 ? (totalKeluar / targetKontrak) * 100 : 0;
   const dashOffset = 251.2 - (251.2 * Math.min(expensePercent, 100)) / 100;
+  const weightedItems = transaksi.filter((item) => ['keluar', 'expense'].includes(item.jenis?.toLowerCase()) && Number(item.total_tagihan) > 0);
+  const weightedRabTotal = weightedItems.reduce((total, item) => total + Number(item.total_tagihan || 0), 0);
+  const weightedRealization = weightedItems.reduce((total, item) => {
+    const itemTotal = Number(item.total_tagihan) || 0;
+    const itemProgress = itemTotal > 0 ? Math.min(Number(item.jumlah || 0) / itemTotal, 1) : 0;
+    const itemWeight = weightedRabTotal > 0 ? itemTotal / weightedRabTotal : 0;
+    return total + (itemWeight * itemProgress);
+  }, 0);
+  const weightedProgressPercent = Math.min(weightedRealization * 100, 100);
+  const weightedNominal = weightedRabTotal * weightedRealization;
 
   const handleUpdateStatus = (newStatus) => {
     axios.post('http://localhost/skripsi-manajemen/api/update_status.php', { id, status: newStatus }).then(() => fetchData());
   }
+
+  const downloadImportTemplate = () => {
+    const rows = [
+      ['TEMPLATE IMPORT RENCANA ANGGARAN BIAYA'],
+      [`PEKERJAAN: ${projectInfo?.nama_proyek || 'Nama Proyek'}`],
+      [`KLIEN / LOKASI: ${projectInfo?.klien || 'Nama Klien / Lokasi'}`],
+      [],
+      ['NO', 'URAIAN PEKERJAAN', 'SPESIFIKASI', 'VOL', 'SAT', 'HRG SATUAN (Rp)', 'JMLH HARGA (Rp)', 'BOBOT (%)', 'PROGRESS (%)', 'NOMINAL (Rp)'],
+      ['I', 'PEKERJAAN MATERIAL'],
+      [1, 'Semen Portland', 'Semen 50 kg', 10, 'sak', 75000, 750000, 0.1119402985, 0.5, 375000],
+      [2, 'Bata merah', 'Ukuran standar', 1000, 'bh', 1200, 1200000, 0.1791044776, 0, 0],
+      ['II', 'PEKERJAAN UPAH'],
+      [1, 'Upah tukang', 'Tim tukang minggu ke-1', 7, 'hari', 250000, 1750000, 0.2611940299, 1, 1750000],
+      ['III', 'PEKERJAAN SUBCON'],
+      [1, 'Pemasangan plafon', 'Vendor contoh', 20, 'm2', 150000, 3000000, 0.4477611940, 0.25, 750000],
+      ['', 'TOTAL PROGRESS PROYEK', '', '', '', '', 6700000, 1, 0.4291044776, 2875000],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    const exampleRows = [7, 8, 10, 12];
+    const exampleValues = [
+      { weight: 0.1119402985, nominal: 375000 },
+      { weight: 0.1791044776, nominal: 0 },
+      { weight: 0.2611940299, nominal: 1750000 },
+      { weight: 0.4477611940, nominal: 750000 },
+    ];
+    exampleRows.forEach((excelRow, index) => {
+      sheet[`H${excelRow}`] = { t: 'n', f: `G${excelRow}/SUM($G$7:$G$12)`, v: exampleValues[index].weight, z: '0.00%' };
+      sheet[`J${excelRow}`] = { t: 'n', f: `G${excelRow}*I${excelRow}`, v: exampleValues[index].nominal, z: '#,##0.00' };
+    });
+    sheet.H13 = { t: 'n', f: 'SUM(H7:H12)', v: 1, z: '0.00%' };
+    sheet.I13 = { t: 'n', f: 'SUMPRODUCT(H7:H12,I7:I12)', v: 0.4291044776, z: '0.00%' };
+    sheet.J13 = { t: 'n', f: 'SUM(J7:J12)', v: 2875000, z: '#,##0.00' };
+    sheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },
+      { s: { r: 5, c: 1 }, e: { r: 5, c: 9 } },
+      { s: { r: 8, c: 1 }, e: { r: 8, c: 9 } },
+      { s: { r: 10, c: 1 }, e: { r: 10, c: 9 } },
+    ];
+    sheet['!cols'] = [
+      { wch: 7 }, { wch: 38 }, { wch: 28 }, { wch: 10 }, { wch: 9 },
+      { wch: 19 }, { wch: 20 }, { wch: 13 }, { wch: 16 }, { wch: 20 },
+    ];
+    [6, 7, 9, 11, 12].forEach((rowIndex) => {
+      ['F', 'G', 'J'].forEach((column) => { sheet[`${column}${rowIndex + 1}`].z = '#,##0.00'; });
+      ['H', 'I'].forEach((column) => { sheet[`${column}${rowIndex + 1}`].z = '0.00%'; });
+    });
+    sheet['!autofilter'] = { ref: 'A5:J5' };
+
+    const instructions = XLSX.utils.aoa_to_sheet([
+      ['PETUNJUK IMPORT RAB'],
+      ['1', 'Jangan mengubah nama kolom pada baris header.'],
+      ['2', 'Gunakan kelompok PEKERJAAN MATERIAL, PEKERJAAN UPAH, atau PEKERJAAN SUBCON.'],
+      ['3', 'Bobot adalah proporsi Jumlah Harga item terhadap total RAB dan jumlah seluruh bobot harus 100%.'],
+      ['4', 'Progress item dapat diisi sebagai 50% atau angka desimal 0,5. Progress proyek dihitung dari Bobot x Progress item.'],
+      ['5', 'Baris contoh boleh dihapus atau diganti dengan data proyek.'],
+      ['6', 'Baris tanpa uraian atau tanpa jumlah harga akan dilewati.'],
+    ]);
+    instructions['!cols'] = [{ wch: 8 }, { wch: 95 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'TEMPLATE RAB');
+    XLSX.utils.book_append_sheet(workbook, instructions, 'PETUNJUK');
+    XLSX.writeFile(workbook, `Template_Import_RAB_${projectInfo?.nama_proyek || 'Proyek'}.xlsx`);
+  };
 
   const exportToExcel = () => {
     const expenses = (transaksi || []).filter((item) => ['keluar', 'expense'].includes(item.jenis?.toLowerCase()));
@@ -210,7 +286,7 @@ function ProjectDetail() {
       [`PEKERJAAN: ${projectInfo?.nama_proyek || '-'}`],
       [`KLIEN / LOKASI: ${projectInfo?.klien || '-'}`],
       [],
-      ['NO', 'URAIAN PEKERJAAN', 'SPESIFIKASI', 'VOL', 'SAT', 'HRG SATUAN (Rp)', 'JMLH HARGA (Rp)', 'PROGRESS (%)', 'NOMINAL (Rp)'],
+      ['NO', 'URAIAN PEKERJAAN', 'SPESIFIKASI', 'VOL', 'SAT', 'HRG SATUAN (Rp)', 'JMLH HARGA (Rp)', 'BOBOT (%)', 'PROGRESS (%)', 'NOMINAL (Rp)'],
     ];
     const dataRowIndexes = [];
     const subtotalRowIndexes = [];
@@ -235,48 +311,52 @@ function ProjectDetail() {
           'ls',
           contractValue,
           contractValue,
+          0,
           progress,
           paid,
         ]);
-        dataRowIndexes.push(rows.length - 1);
+        dataRowIndexes.push({ rowIndex: rows.length - 1, contractValue });
       });
       grandTotal += subtotal;
       grandNominal += subtotalNominal;
-      rows.push(['', 'Sub Jumlah', '', '', '', '', subtotal, '', subtotalNominal]);
+      rows.push(['', 'Sub Jumlah', '', '', '', '', subtotal, '', '', subtotalNominal]);
       subtotalRowIndexes.push(rows.length - 1);
     });
 
     const totalProgress = grandTotal > 0 ? grandNominal / grandTotal : 0;
-    rows.push(['', 'GRAND TOTAL', '', '', '', '', grandTotal, totalProgress, grandNominal]);
+    dataRowIndexes.forEach(({ rowIndex, contractValue }) => { rows[rowIndex][7] = grandTotal > 0 ? contractValue / grandTotal : 0; });
+    rows.push(['', 'GRAND TOTAL', '', '', '', '', grandTotal, 1, totalProgress, grandNominal]);
     const grandTotalRowIndex = rows.length - 1;
     const roundedTotal = Math.round(grandTotal / 1000000) * 1000000;
-    rows.push(['', 'PEMBULATAN', '', '', '', '', roundedTotal, totalProgress, grandNominal]);
+    rows.push(['', 'PEMBULATAN', '', '', '', '', roundedTotal, 1, totalProgress, grandNominal]);
     const roundedRowIndex = rows.length - 1;
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 9 } },
       ...Object.keys(groups).map((_, index) => {
         const groupRow = 5 + Object.values(groups).slice(0, index).reduce((sum, items) => sum + items.length + 2, 0);
-        return { s: { r: groupRow, c: 1 }, e: { r: groupRow, c: 8 } };
+        return { s: { r: groupRow, c: 1 }, e: { r: groupRow, c: 9 } };
       }),
     ];
     ws['!cols'] = [
       { wch: 7 }, { wch: 42 }, { wch: 28 }, { wch: 10 }, { wch: 9 },
-      { wch: 19 }, { wch: 20 }, { wch: 16 }, { wch: 20 },
+      { wch: 19 }, { wch: 20 }, { wch: 13 }, { wch: 16 }, { wch: 20 },
     ];
     ws['!rows'] = [{ hpt: 24 }, { hpt: 19 }, { hpt: 19 }, { hpt: 8 }, { hpt: 32 }];
-    [...dataRowIndexes, ...subtotalRowIndexes, grandTotalRowIndex, roundedRowIndex].forEach((rowIndex) => {
-      ['F', 'G', 'I'].forEach((column) => {
+    [...dataRowIndexes.map((item) => item.rowIndex), ...subtotalRowIndexes, grandTotalRowIndex, roundedRowIndex].forEach((rowIndex) => {
+      ['F', 'G', 'J'].forEach((column) => {
         const cell = ws[`${column}${rowIndex + 1}`];
         if (cell) cell.z = '#,##0.00;[Red](#,##0.00)';
       });
-      const progressCell = ws[`H${rowIndex + 1}`];
-      if (progressCell) progressCell.z = '0.00%';
+      ['H', 'I'].forEach((column) => {
+        const percentageCell = ws[`${column}${rowIndex + 1}`];
+        if (percentageCell) percentageCell.z = '0.00%';
+      });
     });
-    ws['!autofilter'] = { ref: 'A5:I5' };
+    ws['!autofilter'] = { ref: 'A5:J5' };
     const wb = XLSX.utils.book_new();
     wb.Props = { Title: `RAB ${projectInfo?.nama_proyek || 'Proyek'}`, Subject: 'Rencana Anggaran Biaya', Company: 'Virtual Actualize' };
     XLSX.utils.book_append_sheet(wb, ws, "RAB & Bobot");
@@ -347,6 +427,8 @@ function ProjectDetail() {
     .gallery-item img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
     .delete-photo-btn { position: absolute; top: 10px; right: 10px; background: #ff4757; color: white; border: none; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; }
     .status-btn { border: 1px solid ${theme.border}; padding: 10px 22px; border-radius: 50px; font-size: 10px; cursor: pointer; font-weight: 800; transition: 0.3s; background: none; color: ${theme.text}; }
+    .weighted-progress-track { width: 100%; height: 14px; border-radius: 999px; background: ${isDarkMode ? '#242424' : '#eceff1'}; overflow: hidden; }
+    .weighted-progress-fill { height: 100%; border-radius: inherit; background: ${theme.accent}; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
     @media print { @page { size: A4; margin: 1cm; } body { background: white !important; color: black !important; } .no-print, .top-nav, button, form, .gallery-grid, input[type="file"], .btn-action-luxury { display: none !important; } .container-detail { padding: 0; width: 100%; } .card-va { box-shadow: none !important; border: none !important; padding: 10px 0 !important; background: white !important; } .stats-wrapper { display: flex !important; flex-wrap: wrap !important; gap: 15px !important; margin-bottom: 30px !important; } .stats-wrapper .card-va { border: 1px solid #eee !important; border-radius: 15px !important; padding: 15px !important; flex: 1 !important; } .table-va { font-size: 10px !important; width: 100% !important; border: 1px solid #eee !important; color: black !important; } th { background: #f9f9f9 !important; color: #000 !important; border-bottom: 2px solid #333 !important; } td { padding: 10px !important; border-bottom: 1px solid #eee !important; color: black !important; } h1 { font-size: 22px !important; letter-spacing: 8px !important; margin-bottom: 5px !important; color: black !important; } p { color: black !important; } }
     @media (max-width: 900px) { .stats-wrapper { flex-direction: column !important; } .grid-cards { grid-template-columns: 1fr !important; } .top-nav { flex-direction: column; gap: 15px; position: static; } .transaction-form-grid { grid-template-columns: 1fr !important; } .table-container { overflow-x: auto; } }
   `;
@@ -366,6 +448,7 @@ function ProjectDetail() {
             DASHBOARD
         </Link>
         <div style={{ display: 'flex', gap: '12px' }}>
+            <button onClick={downloadImportTemplate} className="btn-action-luxury">TEMPLATE EXCEL</button>
             <button onClick={() => fileInputRef.current.click()} className="btn-action-luxury" style={{ background: '#27ae60', color: '#fff', border: 'none' }}>IMPORT EXCEL</button>
             <button onClick={exportToExcel} className="btn-action-luxury">EXPORT EXCEL</button>
             <button onClick={() => window.print()} className="btn-action-luxury" style={{background:theme.accent, color:isDarkMode?'#000':'#fff', border:'none'}}>PRINT ARCHIVE</button>
@@ -382,6 +465,25 @@ function ProjectDetail() {
                   {status.toUpperCase()}
                 </button>
             ))}
+        </div>
+      </div>
+
+      <div className="card-va" style={{ marginBottom: '30px' }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', gap:'20px', marginBottom:'16px', flexWrap:'wrap'}}>
+          <div>
+            <span className="form-label">Progress Proyek Berdasarkan Bobot</span>
+            <div style={{fontSize:'11px', color:'#888'}}>{weightedItems.length} item RAB berbobot</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontFamily:'Montserrat', fontSize:'28px', fontWeight:'800'}}>{weightedProgressPercent.toLocaleString('id-ID', {minimumFractionDigits:2, maximumFractionDigits:2})}%</div>
+            <div style={{fontSize:'10px', color:'#888'}}>Rp {weightedNominal.toLocaleString('id-ID')} / Rp {weightedRabTotal.toLocaleString('id-ID')}</div>
+          </div>
+        </div>
+        <div className="weighted-progress-track" role="progressbar" aria-label="Progress proyek berdasarkan bobot" aria-valuemin="0" aria-valuemax="100" aria-valuenow={weightedProgressPercent}>
+          <div className="weighted-progress-fill" style={{width:`${weightedProgressPercent}%`}} />
+        </div>
+        <div style={{display:'flex', justifyContent:'space-between', marginTop:'9px', fontSize:'9px', fontWeight:'700', color:'#888'}}>
+          <span>0%</span><span>BOBOT × PROGRESS ITEM</span><span>100%</span>
         </div>
       </div>
 

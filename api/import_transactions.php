@@ -75,6 +75,7 @@ $projectStmt->close();
 $insert = $conn->prepare("INSERT INTO transactions (project_id, jenis, kategori, jumlah, total_tagihan, vendor, status_pembayaran, pic, keterangan, tanggal, bukti) VALUES (?, 'Keluar', ?, ?, ?, ?, 'Lunas', ?, ?, ?, NULL)");
 $imported = 0;
 $skipped = [];
+$currentGroup = null;
 $conn->begin_transaction();
 
 try {
@@ -82,10 +83,26 @@ try {
         $row = normalized_row($rawRow);
         $rowNumber = $index + 2;
         $hasWageColumns = first_value($row, ['beras & air', 'beras air', 'lemburan', 'upah']) !== '';
-        $hasMaterialColumns = first_value($row, ['qty', 'quantity', 'volume', 'satuan', 'harga satuan', 'harga unit']) !== '';
+        $hasMaterialColumns = first_value($row, ['qty', 'quantity', 'volume', 'vol', 'satuan', 'sat', 'harga satuan', 'hrg satuan', 'harga unit']) !== '';
         $materialName = first_value($row, ['nama material', 'material', 'nama barang', 'uraian material', 'uraian pekerjaan', 'deskripsi', 'item']);
         $personName = first_value($row, ['nama pekerja', 'nama tukang', 'nama']);
         $explicitCategory = strtolower((string)first_value($row, ['kategori', 'category', 'jenis biaya']));
+        $rowNumberValue = strtoupper(trim((string)first_value($row, ['no', 'nomor'])));
+        $groupLabel = strtoupper(trim((string)$materialName));
+        $rowTotal = money_value(first_value($row, ['grand total', 'jumlah harga', 'jmlh harga', 'jmlh harga rp', 'total harga', 'subtotal', 'total', 'jumlah']));
+
+        if (preg_match('/^(SUB\s*JUMLAH|GRAND\s*TOTAL|PEMBULATAN|TOTAL|TOTAL\s+PROGRESS.*)$/', $groupLabel)) continue;
+
+        // Baris I/II/III pada format RAB dipakai sebagai konteks kategori untuk baris detail berikutnya.
+        if (preg_match('/^[IVXLCDM]+$/', $rowNumberValue) && strpos($groupLabel, 'PEKERJAAN') !== false && $rowTotal <= 0) {
+            if (strpos($groupLabel, 'UPAH') !== false) $currentGroup = 'Upah';
+            elseif (strpos($groupLabel, 'SUBCON') !== false || strpos($groupLabel, 'SUBKON') !== false) $currentGroup = 'Subcon';
+            elseif (strpos($groupLabel, 'MATERIAL') !== false) $currentGroup = 'Material';
+            else $currentGroup = null;
+            continue;
+        }
+
+        if ($currentGroup) $explicitCategory = strtolower($currentGroup);
 
         if (strpos($explicitCategory, 'subcon') !== false || strpos($explicitCategory, 'subkon') !== false) {
             $category = 'Subcon';
@@ -98,7 +115,19 @@ try {
             continue;
         }
 
-        if ($category === 'Upah') {
+        $rabTotal = money_value(first_value($row, ['jumlah harga', 'jmlh harga', 'jmlh harga rp', 'total harga']));
+        $rabNominalRaw = first_value($row, ['nominal', 'nominal rp', 'realisasi']);
+        $rabNominal = money_value($rabNominalRaw);
+        $rabProgressRaw = first_value($row, ['progress', 'progress %', 'bobot progress']);
+        if ($rabNominalRaw === '' && $rabTotal > 0 && $rabProgressRaw !== '') {
+            $progressValue = money_value($rabProgressRaw);
+            if ($progressValue > 1) $progressValue /= 100;
+            $rabNominal = $rabTotal * max(0, min($progressValue, 1));
+            $rabNominalRaw = $rabNominal;
+        }
+        $isRabRow = $rabTotal > 0 || $rabNominalRaw !== '';
+
+        if ($category === 'Upah' && !$isRabRow) {
             $description = $personName ?: first_value($row, ['uraian', 'keterangan'], 'Tenaga kerja');
             $amount = money_value(first_value($row, ['grand total', 'jumlah', 'total bayar', 'total']));
             if ($amount <= 0) {
@@ -108,15 +137,18 @@ try {
             }
         } else {
             $description = $materialName ?: first_value($row, ['nama', 'uraian', 'keterangan'], $category);
-            $amount = money_value(first_value($row, ['grand total', 'jumlah harga', 'total harga', 'subtotal', 'total', 'jumlah']));
+            $amount = $isRabRow ? $rabNominal : money_value(first_value($row, ['grand total', 'subtotal', 'total', 'jumlah']));
             if ($amount <= 0) {
-                $quantity = money_value(first_value($row, ['volume', 'qty', 'quantity', 'jumlah barang'], 1));
-                $unitPrice = money_value(first_value($row, ['harga satuan', 'harga unit', 'unit price', 'harga']));
+                $quantity = money_value(first_value($row, ['volume', 'vol', 'qty', 'quantity', 'jumlah barang'], 1));
+                $unitPrice = money_value(first_value($row, ['harga satuan', 'hrg satuan', 'hrg satuan rp', 'harga unit', 'unit price', 'harga']));
                 $amount = $quantity * $unitPrice;
             }
         }
 
-        if ($description === '' || $amount <= 0) {
+        $totalBill = $isRabRow ? $rabTotal : $amount;
+        if ($isRabRow && $rabNominalRaw !== '') $amount = $rabNominal;
+
+        if ($description === '' || $totalBill <= 0 || $amount < 0) {
             $skipped[] = ["row" => $rowNumber, "reason" => "Nama item atau nominal tidak valid"];
             continue;
         }
@@ -130,7 +162,6 @@ try {
             $timestamp = $dateValue ? strtotime((string)$dateValue) : false;
         }
         $date = $timestamp ? date('Y-m-d H:i:s', $timestamp) : date('Y-m-d H:i:s');
-        $totalBill = $amount;
         $insert->bind_param("isddssss", $projectId, $category, $amount, $totalBill, $vendor, $changedBy, $notes, $date);
         $insert->execute();
         $imported++;

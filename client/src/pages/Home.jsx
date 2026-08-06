@@ -71,11 +71,21 @@ function Home() {
 
   const hitungPersen = (idProyek, budget) => {
     if (!Array.isArray(semuaTransaksi)) return 0;
-    
-    const pengeluaran = semuaTransaksi
-      .filter(t => t.project_id == idProyek && (t.jenis?.toLowerCase() === 'keluar' || t.jenis?.toLowerCase() === 'expense'))
-      .reduce((acc, curr) => acc + parseFloat(curr.jumlah || 0), 0);
-    
+
+    const expenses = semuaTransaksi.filter(t => t.project_id == idProyek && ['keluar', 'expense'].includes(t.jenis?.toLowerCase()));
+    const rabItems = expenses.filter((item) => Number(item.total_tagihan) > 0);
+    const totalRab = rabItems.reduce((total, item) => total + Number(item.total_tagihan || 0), 0);
+    if (totalRab > 0) {
+      const weightedProgress = rabItems.reduce((total, item) => {
+        const itemTotal = Number(item.total_tagihan) || 0;
+        const itemProgress = itemTotal > 0 ? Math.min(Number(item.jumlah || 0) / itemTotal, 1) : 0;
+        const itemWeight = itemTotal / totalRab;
+        return total + (itemWeight * itemProgress);
+      }, 0);
+      return Math.min(weightedProgress * 100, 100);
+    }
+
+    const pengeluaran = expenses.reduce((acc, curr) => acc + parseFloat(curr.jumlah || 0), 0);
     if (!budget || budget == 0) return 0;
     const persen = (pengeluaran / budget) * 100;
     return persen > 100 ? 100 : persen;
