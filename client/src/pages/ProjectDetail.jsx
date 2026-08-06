@@ -69,38 +69,28 @@ function ProjectDetail() {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws);
+        const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const headerIndex = matrix.findIndex((row) => {
+          const keys = row.map((cell) => String(cell).toLowerCase().replace(/[^a-z0-9]+/g, ''));
+          const hasIdentity = keys.some((key) => ['no', 'nama', 'namamaterial', 'namabarang', 'uraian', 'material', 'item'].includes(key));
+          const hasAmount = keys.some((key) => ['total', 'grandtotal', 'jumlah', 'jumlahharga', 'hargasatuan', 'harga'].includes(key));
+          return hasIdentity && hasAmount;
+        });
+        if (headerIndex < 0) throw new Error('Baris judul kolom Excel tidak ditemukan.');
+        const data = XLSX.utils.sheet_to_json(ws, { range: headerIndex, defval: '' });
 
-        for (const row of data) {
-          // Hanya proses baris yang memiliki nomor urut (menghindari baris "Grand Total")
-          if (!row.No || isNaN(row.No)) continue;
-
-          const bulkData = new FormData();
-          bulkData.append('project_id', id); // JANGKAR: Mengunci ke proyek aktif
-          bulkData.append('jenis', 'Keluar');
-          bulkData.append('pic', 'Excel Import');
-          
-          // Deteksi apakah ini data Upah atau Material berdasarkan kolom Nama
-          if (row.Nama) {
-            bulkData.append('kategori', 'Upah');
-            bulkData.append('vendor', row.Nama);
-            
-            // Kalkulasi: Pokok + Beras/Air + Lemburan
-            const totalDasar = Number(row.Total || 0); 
-            const berasAir = Number(row['Beras & Air'] || 0);
-            const lemburan = Number(row.Lemburan || 0);
-            const grandTotalRow = totalDasar + berasAir + lemburan;
-            
-            bulkData.append('jumlah', grandTotalRow);
-            bulkData.append('total_tagihan', grandTotalRow);
-          }
-
-          await axios.post('http://localhost/skripsi-manajemen/api/add_transaction.php', bulkData);
-        }
+        if (!data.length) throw new Error('Sheet Excel tidak memiliki data.');
+        const response = await axios.post('http://localhost/skripsi-manajemen/api/import_transactions.php', {
+          project_id: id,
+          rows: data,
+          changed_by: userVa?.nama_lengkap || userVa?.username || 'Excel Import',
+        });
+        const skipped = response.data?.skipped?.length || 0;
+        console.info(`${response.data?.imported || 0} baris berhasil diimpor${skipped ? `, ${skipped} baris dilewati` : ''}.`);
         alert("Import Data Berhasil! 🚀");
         fetchData();
       } catch (err) {
-        alert("Gagal membaca file Excel. Pastikan format kolom sesuai.");
+        alert(err.response?.data?.message || err.message || "Gagal membaca file Excel. Pastikan format kolom sesuai.");
         console.error(err);
       }
     };
@@ -195,26 +185,102 @@ function ProjectDetail() {
   }
 
   const exportToExcel = () => {
-    if (!transaksi || transaksi.length === 0) {
-      alert("Tidak ada data untuk diekspor");
+    const expenses = (transaksi || []).filter((item) => ['keluar', 'expense'].includes(item.jenis?.toLowerCase()));
+    if (expenses.length === 0) {
+      alert("Tidak ada data pengeluaran untuk diekspor sebagai RAB");
       return;
     }
 
-    const data = transaksi.map(t => ({
-      Tanggal: t.tanggal,
-      Vendor: t.vendor || t.keterangan || "PAYROLL SYSTEM",
-      Kategori: t.kategori || "Payroll Disbursement",
-      PIC: t.pic || "-",
-      Jenis: t.jenis,
-      Jumlah: Number(t.jumlah),
-      Total_Tagihan: Number(t.total_tagihan) || 0,
-      Hutang_Sisa: t.jenis?.toLowerCase().includes('keluar') && (parseFloat(t.total_tagihan) - parseFloat(t.jumlah)) > 0 ? (parseFloat(t.total_tagihan) - parseFloat(t.jumlah)) : 0
-    }));
+    const getGroup = (item) => {
+      const category = String(item.kategori || '').toLowerCase();
+      if (/upah|gaji|payroll|tukang|pekerja/.test(category)) return 'PEKERJAAN UPAH';
+      if (/subcon|subkon|vendor|borongan|pemasangan/.test(category)) return 'PEKERJAAN SUBCON';
+      if (/material|logistik|bata|semen|pasir|beton|besi|kayu|kusen|keramik|lantai|atap|plafon|pipa|listrik|dinding/.test(category)) return 'PEKERJAAN MATERIAL';
+      return 'PEKERJAAN LAIN-LAIN';
+    };
+    const roman = ['I', 'II', 'III', 'IV'];
+    const groups = expenses.reduce((result, item) => {
+      const group = getGroup(item);
+      if (!result[group]) result[group] = [];
+      result[group].push(item);
+      return result;
+    }, {});
+    const rows = [
+      ['RENCANA ANGGARAN BIAYA (PROJECT ACTUAL)'],
+      [`PEKERJAAN: ${projectInfo?.nama_proyek || '-'}`],
+      [`KLIEN / LOKASI: ${projectInfo?.klien || '-'}`],
+      [],
+      ['NO', 'URAIAN PEKERJAAN', 'SPESIFIKASI', 'VOL', 'SAT', 'HRG SATUAN (Rp)', 'JMLH HARGA (Rp)', 'PROGRESS (%)', 'NOMINAL (Rp)'],
+    ];
+    const dataRowIndexes = [];
+    const subtotalRowIndexes = [];
+    let grandTotal = 0;
+    let grandNominal = 0;
 
-    const ws = XLSX.utils.json_to_sheet(data);
+    Object.entries(groups).forEach(([groupName, items], groupIndex) => {
+      rows.push([roman[groupIndex] || String(groupIndex + 1), groupName]);
+      let subtotal = 0;
+      let subtotalNominal = 0;
+      items.forEach((item, itemIndex) => {
+        const paid = Number(item.jumlah) || 0;
+        const contractValue = Number(item.total_tagihan) > 0 ? Number(item.total_tagihan) : paid;
+        const progress = contractValue > 0 ? Math.min(paid / contractValue, 1) : 0;
+        subtotal += contractValue;
+        subtotalNominal += paid;
+        rows.push([
+          itemIndex + 1,
+          item.keterangan || item.kategori || 'Pengeluaran proyek',
+          item.vendor || item.pic || '-',
+          1,
+          'ls',
+          contractValue,
+          contractValue,
+          progress,
+          paid,
+        ]);
+        dataRowIndexes.push(rows.length - 1);
+      });
+      grandTotal += subtotal;
+      grandNominal += subtotalNominal;
+      rows.push(['', 'Sub Jumlah', '', '', '', '', subtotal, '', subtotalNominal]);
+      subtotalRowIndexes.push(rows.length - 1);
+    });
+
+    const totalProgress = grandTotal > 0 ? grandNominal / grandTotal : 0;
+    rows.push(['', 'GRAND TOTAL', '', '', '', '', grandTotal, totalProgress, grandNominal]);
+    const grandTotalRowIndex = rows.length - 1;
+    const roundedTotal = Math.round(grandTotal / 1000000) * 1000000;
+    rows.push(['', 'PEMBULATAN', '', '', '', '', roundedTotal, totalProgress, grandNominal]);
+    const roundedRowIndex = rows.length - 1;
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 8 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 8 } },
+      ...Object.keys(groups).map((_, index) => {
+        const groupRow = 5 + Object.values(groups).slice(0, index).reduce((sum, items) => sum + items.length + 2, 0);
+        return { s: { r: groupRow, c: 1 }, e: { r: groupRow, c: 8 } };
+      }),
+    ];
+    ws['!cols'] = [
+      { wch: 7 }, { wch: 42 }, { wch: 28 }, { wch: 10 }, { wch: 9 },
+      { wch: 19 }, { wch: 20 }, { wch: 16 }, { wch: 20 },
+    ];
+    ws['!rows'] = [{ hpt: 24 }, { hpt: 19 }, { hpt: 19 }, { hpt: 8 }, { hpt: 32 }];
+    [...dataRowIndexes, ...subtotalRowIndexes, grandTotalRowIndex, roundedRowIndex].forEach((rowIndex) => {
+      ['F', 'G', 'I'].forEach((column) => {
+        const cell = ws[`${column}${rowIndex + 1}`];
+        if (cell) cell.z = '#,##0.00;[Red](#,##0.00)';
+      });
+      const progressCell = ws[`H${rowIndex + 1}`];
+      if (progressCell) progressCell.z = '0.00%';
+    });
+    ws['!autofilter'] = { ref: 'A5:I5' };
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Transactions");
-    XLSX.writeFile(wb, `${projectInfo?.nama_proyek}_Transactions.xlsx`);
+    wb.Props = { Title: `RAB ${projectInfo?.nama_proyek || 'Proyek'}`, Subject: 'Rencana Anggaran Biaya', Company: 'Virtual Actualize' };
+    XLSX.utils.book_append_sheet(wb, ws, "RAB & Bobot");
+    XLSX.writeFile(wb, `RAB_Bobot_${projectInfo?.nama_proyek || 'Proyek'}.xlsx`);
   }
 
   const startEdit = (t) => {

@@ -1,12 +1,14 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { Link, useNavigate } from 'react-router-dom'
 import CashFlowChart from '../components/CashFlowChart' 
+import ProjectPayChart from '../components/ProjectPayChart'
 import * as XLSX from 'xlsx';
 
 function Home() {
   const [proyek, setProyek] = useState([])
   const [semuaTransaksi, setSemuaTransaksi] = useState([]) 
+  const [projectPayData, setProjectPayData] = useState([])
   const [stats, setStats] = useState({ total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0 });
   const [searchTerm, setSearchTerm] = useState('')
   const [formData, setFormData] = useState({ nama_proyek: '', klien: '', budget_total: '' })
@@ -15,6 +17,11 @@ function Home() {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState({ id: '', nama_proyek: '', klien: '', budget_total: '', status: '' });
+  const [showBudgetHistory, setShowBudgetHistory] = useState(false);
+  const [budgetHistory, setBudgetHistory] = useState([]);
+  const [historyProject, setHistoryProject] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef(null);
 
   const userVa = JSON.parse(localStorage.getItem('user_va'));
   const navigate = useNavigate();
@@ -31,16 +38,18 @@ function Home() {
   const fetchData = useCallback(async () => {
     try {
       const timestamp = Date.now();
-      const [resProyek, resTransaksi, resStats] = await Promise.all([
+      const [resProyek, resTransaksi, resStats, resProjectPay] = await Promise.all([
         axios.get(`http://localhost/skripsi-manajemen/api/get_projects.php?t=${timestamp}`),
         axios.get(`http://localhost/skripsi-manajemen/api/get_transactions.php?global=true&t=${timestamp}`),
-        axios.get(`http://localhost/skripsi-manajemen/api/get_statistics.php?t=${timestamp}`)
+        axios.get(`http://localhost/skripsi-manajemen/api/get_statistics.php?t=${timestamp}`),
+        axios.get(`http://localhost/skripsi-manajemen/api/get_project_pay_chart.php?t=${timestamp}`)
       ]);
       
       // Proteksi agar data selalu berupa array/object yang valid
       setProyek(Array.isArray(resProyek.data) ? resProyek.data : []);
       setSemuaTransaksi(Array.isArray(resTransaksi.data) ? resTransaksi.data : []);
       setStats(resStats.data || { total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0 });
+      setProjectPayData(Array.isArray(resProjectPay.data) ? resProjectPay.data : []);
       
       setLoading(false);
     } catch (err) {
@@ -82,7 +91,7 @@ function Home() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    axios.post('http://localhost/skripsi-manajemen/api/add_project.php', formData)
+    axios.post('http://localhost/skripsi-manajemen/api/add_project.php', { ...formData, changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' })
       .then(() => {
         setFormData({ nama_proyek: '', klien: '', budget_total: '' })
         fetchData()
@@ -103,7 +112,7 @@ function Home() {
 
   const handleUpdate = (e) => {
     e.preventDefault();
-    const finalData = { ...editData, budget_total: editData.budget_total.toString().replace(/\./g, '') };
+    const finalData = { ...editData, budget_total: editData.budget_total.toString().replace(/\./g, ''), changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' };
     axios.post('http://localhost/skripsi-manajemen/api/update_project.php', finalData)
       .then(() => {
         alert("Proyek Berhasil Diupdate!");
@@ -134,6 +143,55 @@ function Home() {
     XLSX.writeFile(workbook, `VA_Portofolio_${new Date().getFullYear()}.xlsx`);
   };
 
+  const openBudgetHistory = async (project) => {
+    setHistoryProject(project);
+    setShowBudgetHistory(true);
+    setBudgetHistory([]);
+    try {
+      const response = await axios.get(`http://localhost/skripsi-manajemen/api/get_budget_history.php?project_id=${project.id}&t=${Date.now()}`);
+      setBudgetHistory(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error(err);
+      alert('Histori budget gagal dimuat.');
+    }
+  };
+
+  const handleImportExcel = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (loadEvent) => {
+      try {
+        const workbook = XLSX.read(loadEvent.target.result, { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+        const normalizedRows = rows.map((row) => ({
+          nama_proyek: row['NAMA PROYEK'] || row.nama_proyek || row['Nama Proyek'],
+          klien: row.KLIEN || row.klien || row.Klien,
+          budget_total: row['TOTAL KONTRAK (IDR)'] || row.budget_total || row['Nilai Kontrak'] || row.BUDGET,
+        })).filter((row) => row.nama_proyek && row.klien && !isNaN(Number(String(row.budget_total).replace(/[^0-9.-]/g, ''))));
+
+        if (!normalizedRows.length) throw new Error('Tidak ada baris dengan kolom Nama Proyek, Klien, dan Total Kontrak.');
+        for (const row of normalizedRows) {
+          await axios.post('http://localhost/skripsi-manajemen/api/add_project.php', {
+            ...row,
+            budget_total: Number(String(row.budget_total).replace(/[^0-9.-]/g, '')),
+            changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos',
+          });
+        }
+        alert(`${normalizedRows.length} proyek berhasil diimpor.`);
+        fetchData();
+      } catch (err) {
+        console.error(err);
+        alert(err.message || 'Gagal membaca Excel. Pastikan format kolom sesuai.');
+      } finally {
+        setImporting(false);
+        event.target.value = '';
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const theme = {
     bg: isDarkMode ? '#0a0a0a' : '#f8f9fa', 
     text: isDarkMode ? '#f0f0f0' : '#1a1a1a',
@@ -162,6 +220,9 @@ function Home() {
     .project-row:hover { transform: translateY(-5px) scale(1.01); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
     .btn-nav { background: none; border: 1px solid transparent; color: ${theme.text}; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
     .btn-nav:hover { background: ${isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}; }
+    .top-bar .btn-nav { border-color: ${theme.border}; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 20px; box-sizing: border-box; backdrop-filter: blur(12px); }
+    .history-row { display: grid; grid-template-columns: 1fr auto; gap: 15px; padding: 16px 0; border-bottom: 1px solid ${theme.border}; }
     .brand-logo { height: 70px; margin-bottom: 15px; mix-blend-mode: ${isDarkMode ? 'screen' : 'multiply'}; filter: ${isDarkMode ? 'invert(1) brightness(1.5)' : 'none'}; transition: 0.3s; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .spinner-icon { display: inline-block; animation: spin 3s linear infinite; margin-right: 8px; color: #e67e22; }
@@ -216,7 +277,7 @@ function Home() {
             }
           </button>
 
-          <button onClick={handleLogout} style={{ background: '#e74c3c', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '10px', fontSize: '9px', fontWeight: '800', cursor: 'pointer' }}>KELUAR</button>
+          <button onClick={handleLogout} className="btn-nav"><span>KELUAR</span></button>
         </div>
       </div>
       
@@ -244,6 +305,10 @@ function Home() {
 
       <div style={{ marginBottom: '50px', borderRadius: '28px', overflow: 'hidden', background: theme.card, border: `1px solid ${theme.border}` }}>
         <CashFlowChart semuaTransaksi={semuaTransaksi} isDarkMode={isDarkMode} />
+      </div>
+
+      <div style={{ marginBottom: '50px', borderRadius: '28px', overflow: 'hidden', background: theme.card, border: `1px solid ${theme.border}` }}>
+        <ProjectPayChart projects={projectPayData} isDarkMode={isDarkMode} />
       </div>
 
       <div className="main-grid">
@@ -285,6 +350,8 @@ function Home() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
             <h3 style={{ margin: 0, fontSize: '12px', fontWeight: '800', letterSpacing: '2px' }}>PORTOFOLIO PROYEK</h3>
             <div style={{ display: 'flex', gap: '10px' }}>
+              <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{display:'none'}} />
+              <button onClick={() => importInputRef.current?.click()} disabled={importing} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>{importing ? 'MENGIMPOR...' : 'IMPORT'}</button>
               <button onClick={exportToExcel} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>EXCEL</button>
               <input placeholder="Cari..." onChange={(e) => setSearchTerm(e.target.value)} style={{ padding: '10px 15px', borderRadius: '12px', border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: '11px', outline: 'none', width: '150px' }} />
             </div>
@@ -323,6 +390,7 @@ function Home() {
                     {hasFullAccess && (
                       <button onClick={() => handleEditClick(item)} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>EDIT</button>
                     )}
+                    <button onClick={() => openBudgetHistory(item)} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>HISTORI</button>
                     <Link to={`/project/${item.id}`} state={{ namaProyek: item.nama_proyek }} 
                       style={{ padding: '12px 25px', backgroundColor: theme.accent, color: isDarkMode ? '#000' : '#fff', textDecoration: 'none', borderRadius: '12px', fontSize: '11px', fontWeight: '800' }}>
                       DETAIL
@@ -375,6 +443,34 @@ function Home() {
                     </div>
                 </form>
             </div>
+        </div>
+      )}
+
+      {showBudgetHistory && (
+        <div className="modal-overlay" onClick={() => setShowBudgetHistory(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{background:theme.card, color:theme.text, width:'100%', maxWidth:'560px', maxHeight:'80vh', overflowY:'auto', borderRadius:'24px', border:`1px solid ${theme.border}`, padding:'28px'}}>
+            <div style={{display:'flex', justifyContent:'space-between', gap:'20px', alignItems:'flex-start', marginBottom:'20px'}}>
+              <div>
+                <div style={{fontSize:'9px', letterSpacing:'2px', color:theme.mutedText}}>HISTORI BUDGET</div>
+                <h3 style={{margin:'8px 0 0'}}>{historyProject?.nama_proyek}</h3>
+              </div>
+              <button className="btn-nav" onClick={() => setShowBudgetHistory(false)}>TUTUP</button>
+            </div>
+            {budgetHistory.length === 0 ? (
+              <p style={{color:theme.mutedText, fontSize:'12px'}}>Belum ada perubahan budget yang tercatat.</p>
+            ) : budgetHistory.map((entry) => (
+              <div className="history-row" key={entry.id}>
+                <div>
+                  <div style={{fontSize:'12px', fontWeight:'700'}}>Diubah oleh {entry.changed_by}</div>
+                  <div style={{fontSize:'10px', color:theme.mutedText, marginTop:'6px'}}>{new Date(entry.changed_at).toLocaleString('id-ID')}</div>
+                </div>
+                <div style={{textAlign:'right', fontSize:'11px'}}>
+                  <div style={{color:theme.mutedText}}>Rp {Number(entry.old_budget).toLocaleString('id-ID')}</div>
+                  <div style={{fontWeight:'800', marginTop:'5px'}}>Rp {Number(entry.new_budget).toLocaleString('id-ID')}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
