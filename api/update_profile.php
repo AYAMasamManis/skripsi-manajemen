@@ -18,20 +18,9 @@ if (isset($data['id']) && isset($data['username']) && isset($data['nama_lengkap'
     $id = $data['id'];
     $username = trim($data['username']);
     $nama = trim($data['nama_lengkap']);
-    $password = isset($data['password']) ? $data['password'] : '';
-
-    if (!empty($password)) {
-        // OPSYEN 1: Update dengan Password Baru
-        $passwordMD5 = md5(trim($password)); 
-        $sql = "UPDATE users SET username = ?, nama_lengkap = ?, password = ? WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("sssi", $username, $nama, $passwordMD5, $id);
-    } else {
-        // OPSYEN 2: Update tanpa ganti Password
-        $sql = "UPDATE users SET username = ?, nama_lengkap = ? WHERE id = ?";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssi", $username, $nama, $id);
-    }
+    $sql = "UPDATE users SET username = ?, nama_lengkap = ? WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("ssi", $username, $nama, $id);
 
     if ($stmt->execute()) {
         echo json_encode([

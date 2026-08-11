@@ -153,6 +153,30 @@ function Home() {
     XLSX.writeFile(workbook, `VA_Portofolio_${new Date().getFullYear()}.xlsx`);
   };
 
+  const downloadProjectTemplate = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ['NAMA PROYEK', 'KLIEN', 'TOTAL KONTRAK (IDR)'],
+      ['Renovasi Kantor Contoh', 'PT Contoh Indonesia', 250000000],
+    ]);
+    worksheet['!cols'] = [{ wch: 32 }, { wch: 28 }, { wch: 24 }];
+    worksheet['C2'].z = '#,##0';
+
+    const instructions = XLSX.utils.aoa_to_sheet([
+      ['PETUNJUK IMPORT PROYEK'],
+      ['1. Isi data pada sheet "Data Proyek" tanpa mengubah judul kolom.'],
+      ['2. Nama Proyek, Klien, dan Total Kontrak wajib diisi.'],
+      ['3. Total Kontrak harus berupa angka dan tidak boleh negatif.'],
+      ['4. Hapus baris contoh sebelum melakukan import.'],
+      ['5. Simpan file dalam format .xlsx atau .xls.'],
+    ]);
+    instructions['!cols'] = [{ wch: 78 }];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Proyek');
+    XLSX.utils.book_append_sheet(workbook, instructions, 'Petunjuk');
+    XLSX.writeFile(workbook, 'Template_Import_Proyek.xlsx');
+  };
+
   const openBudgetHistory = async (project) => {
     setHistoryProject(project);
     setShowBudgetHistory(true);
@@ -175,17 +199,27 @@ function Home() {
       try {
         const workbook = XLSX.read(loadEvent.target.result, { type: 'array' });
         const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
-        const normalizedRows = rows.map((row) => ({
-          nama_proyek: row['NAMA PROYEK'] || row.nama_proyek || row['Nama Proyek'],
-          klien: row.KLIEN || row.klien || row.Klien,
-          budget_total: row['TOTAL KONTRAK (IDR)'] || row.budget_total || row['Nilai Kontrak'] || row.BUDGET,
-        })).filter((row) => row.nama_proyek && row.klien && !isNaN(Number(String(row.budget_total).replace(/[^0-9.-]/g, ''))));
+        if (!rows.length) throw new Error('File tidak memiliki data proyek.');
+        const normalizedRows = rows.map((row, index) => {
+          const rawBudget = row['TOTAL KONTRAK (IDR)'] ?? row.budget_total ?? row['Nilai Kontrak'] ?? row.BUDGET;
+          const budget = Number(String(rawBudget ?? '').replace(/[^0-9.-]/g, ''));
+          return {
+            rowNumber: index + 2,
+            nama_proyek: String(row['NAMA PROYEK'] ?? row.nama_proyek ?? row['Nama Proyek'] ?? '').trim(),
+            klien: String(row.KLIEN ?? row.klien ?? row.Klien ?? '').trim(),
+            budget_total: budget,
+          };
+        });
+        const invalidRows = normalizedRows.filter((row) => !row.nama_proyek || !row.klien || !Number.isFinite(row.budget_total) || row.budget_total < 0);
+        if (invalidRows.length) {
+          throw new Error(`Data tidak valid pada baris ${invalidRows.map((row) => row.rowNumber).join(', ')}. Periksa Nama Proyek, Klien, dan Total Kontrak.`);
+        }
 
-        if (!normalizedRows.length) throw new Error('Tidak ada baris dengan kolom Nama Proyek, Klien, dan Total Kontrak.');
         for (const row of normalizedRows) {
           await axios.post('add_project.php', {
-            ...row,
-            budget_total: Number(String(row.budget_total).replace(/[^0-9.-]/g, '')),
+            nama_proyek: row.nama_proyek,
+            klien: row.klien,
+            budget_total: row.budget_total,
             changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos',
           });
         }
@@ -232,16 +266,27 @@ function Home() {
     .btn-nav:hover { background: ${isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)'}; }
     .top-bar .btn-nav { border-color: ${theme.border}; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.82); display: flex; justify-content: center; align-items: center; z-index: 9999; padding: 20px; box-sizing: border-box; backdrop-filter: blur(12px); }
+    .portfolio-toolbar, .portfolio-tools, .top-actions, .balance-summary { display: flex; align-items: center; }
+    .portfolio-toolbar { justify-content: space-between; margin-bottom: 30px; gap: 16px; }
+    .portfolio-tools { gap: 10px; }
+    .top-actions { gap: 8px; }
+    .balance-summary { justify-content: center; gap: 20px; font-size: 11px; margin-top: 20px; }
+    .project-action-buttons { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .search-project { padding: 10px 15px; border-radius: 12px; border: 1px solid ${theme.border}; background: ${theme.inputBg}; color: ${theme.text}; font-size: 11px; outline: none; width: 150px; box-sizing: border-box; }
+    .import-panel { margin-top: 22px; padding-top: 20px; border-top: 1px solid ${theme.border}; }
+    .import-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .import-actions .btn-nav { justify-content: center; border-color: ${theme.border}; min-height: 42px; }
     .history-row { display: grid; grid-template-columns: 1fr auto; gap: 15px; padding: 16px 0; border-bottom: 1px solid ${theme.border}; }
     .brand-logo { height: 70px; margin-bottom: 15px; mix-blend-mode: ${isDarkMode ? 'screen' : 'multiply'}; filter: ${isDarkMode ? 'invert(1) brightness(1.5)' : 'none'}; transition: 0.3s; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     .spinner-icon { display: inline-block; animation: spin 3s linear infinite; margin-right: 8px; color: #e67e22; }
-    @media (max-width: 850px) { .main-grid { grid-template-columns: 1fr; } .card-sticky { position: static; } .project-row { flex-direction: column; align-items: flex-start; gap: 20px; } .project-actions { width: 100%; justify-content: space-between; display: flex; } .real-balance-text { font-size: 2.2rem !important; } .top-bar { padding: 10px; border-radius: 15px; } .btn-nav span { display: none; } }
+    @media (max-width: 850px) { .main-grid { grid-template-columns: minmax(0, 1fr); } .card-sticky { position: static; } .project-row { flex-direction: column; align-items: stretch; gap: 20px; } .project-actions { width: 100%; justify-content: space-between; display: flex; gap: 12px !important; flex-wrap: wrap; } .project-action-buttons { width: 100%; justify-content: flex-start; } .real-balance-text { font-size: clamp(1.65rem, 8vw, 2.2rem) !important; letter-spacing: -1px; overflow-wrap: anywhere; } .top-bar { padding: 10px; border-radius: 15px; } .top-bar .btn-nav span { display: none; } }
+    @media (max-width: 600px) { .container { padding: 14px 12px 30px; } .top-bar { top: 8px; margin-bottom: 28px; gap: 8px; } .top-actions { gap: 4px; } .top-bar .btn-nav { padding: 9px; } .top-bar a > div:last-child { display: none; } .brand-logo { height: 58px; } .page-title { font-size: 17px !important; letter-spacing: 5px !important; overflow-wrap: anywhere; } .page-subtitle { letter-spacing: 3px !important; } .balance-header { padding: 32px 12px; border-radius: 20px; } .balance-title { letter-spacing: 3px !important; } .balance-summary { flex-direction: column; gap: 8px; } .card-home, .project-row { padding: 20px 16px; border-radius: 18px; } .portfolio-toolbar { align-items: stretch; flex-direction: column; margin-bottom: 20px; } .portfolio-tools { display: grid; grid-template-columns: 1fr 1fr; width: 100%; } .portfolio-tools .btn-nav { justify-content: center; } .search-project { grid-column: 1 / -1; width: 100%; min-height: 42px; } .project-action-buttons > * { flex: 1 1 calc(50% - 5px); text-align: center; justify-content: center; box-sizing: border-box; } .project-action-buttons a { padding: 12px !important; } .modal-overlay { padding: 12px; align-items: flex-end; } .history-row { grid-template-columns: 1fr; } }
   `;
 
   if (loading) return (
     <div style={{ background: theme.bg, height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: theme.text }}>
-        <h1 style={{ letterSpacing: '10px', fontWeight: '200' }}>LOADING...</h1>
+        <h1 style={{ letterSpacing: '10px', fontWeight: '200' }}>MEMUAT...</h1>
         <p style={{ fontSize: '10px', opacity: 0.5, letterSpacing: '4px' }}>VIRTUAL ACTUALIZE SYSTEM</p>
     </div>
   );
@@ -263,7 +308,7 @@ function Home() {
           </Link>
         </div>
         
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div className="top-actions">
           <Link to="/vendor-hutang" className="btn-nav">
             <svg style={{width:'16px'}} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 8V21H3V8M1 3H23V8H1V3M10 12H14"/></svg>
             <span>HUTANG</span>
@@ -296,18 +341,18 @@ function Home() {
         <div style={{ display: 'inline-block', padding: '10px' }}>
            <img src="/logo-va.jpeg" alt="VA Logo" className="brand-logo" />
         </div>
-        <h1 style={{ fontSize: '20px', letterSpacing: '12px', fontWeight: '300', textTransform: 'uppercase', margin: 0 }}>VIRTUAL ACTUALIZE</h1>
-        <p style={{ fontSize: '9px', color: theme.mutedText, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '10px', fontStyle: 'italic' }}>Renovation & Construction</p>
+        <h1 className="page-title" style={{ fontSize: '20px', letterSpacing: '12px', fontWeight: '300', textTransform: 'uppercase', margin: 0 }}>VIRTUAL ACTUALIZE</h1>
+        <p className="page-subtitle" style={{ fontSize: '9px', color: theme.mutedText, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '10px', fontStyle: 'italic' }}>Renovasi & Konstruksi</p>
       </div>
 
       {/* BALANCE HEADER */}
       <div className="balance-header">
-        <p style={{ margin: 0, fontSize: '10px', opacity: 0.5, letterSpacing: '5px' }}>SALDO RILL PERUSAHAAN</p>
+        <p className="balance-title" style={{ margin: 0, fontSize: '10px', opacity: 0.5, letterSpacing: '5px' }}>SALDO RILL PERUSAHAAN</p>
         <h1 className="real-balance-text">
           <span style={{ fontSize: '1.5rem', opacity: 0.3, marginRight: '10px' }}>Rp</span>
           {Number(stats.total_balance || 0).toLocaleString('id-ID')}
         </h1>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', fontSize: '11px', marginTop: '20px' }}>
+        <div className="balance-summary">
             <div style={{ color: '#2ecc71', fontWeight: 'bold' }}>▲ {stats.total_projects} PROYEK</div>
             <div style={{ color: '#e74c3c', fontWeight: 'bold' }}>▼ IDR {Number(stats.total_debt || 0).toLocaleString('id-ID')} HUTANG</div>
         </div>
@@ -342,6 +387,16 @@ function Home() {
                 <button type="submit" style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', padding: '16px', borderRadius: '15px', cursor: 'pointer', fontWeight: '800', width: '100%', fontSize: '11px' }}>TAMBAHKAN PROYEK</button>
               </form>
 
+              <div className="import-panel">
+                <div style={{fontSize:'9px', color:theme.mutedText, fontWeight:'700', marginBottom:'10px'}}>IMPOR BANYAK PROYEK</div>
+                <p style={{fontSize:'10px', color:theme.mutedText, lineHeight:'1.6', margin:'0 0 12px'}}>Unduh template, isi data proyek, lalu unggah file Excel yang sudah dilengkapi.</p>
+                <div className="import-actions">
+                  <button type="button" onClick={downloadProjectTemplate} className="btn-nav">TEMPLATE</button>
+                  <button type="button" onClick={() => importInputRef.current?.click()} disabled={importing} className="btn-nav">{importing ? 'MENGIMPOR...' : 'IMPOR'}</button>
+                </div>
+                <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{display:'none'}} />
+              </div>
+
               <div className="stat-mini-grid">
                 <div className="stat-mini-card">
                     <div style={{fontSize:'18px', fontWeight:'800'}}>{stats.total_projects}</div>
@@ -357,13 +412,12 @@ function Home() {
         )}
 
         <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+          <div className="portfolio-toolbar">
             <h3 style={{ margin: 0, fontSize: '12px', fontWeight: '800', letterSpacing: '2px' }}>PORTOFOLIO PROYEK</h3>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{display:'none'}} />
-              <button onClick={() => importInputRef.current?.click()} disabled={importing} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>{importing ? 'MENGIMPOR...' : 'IMPORT'}</button>
+            <div className="portfolio-tools">
+              <button onClick={downloadProjectTemplate} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>TEMPLATE</button>
               <button onClick={exportToExcel} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>EXCEL</button>
-              <input placeholder="Cari..." onChange={(e) => setSearchTerm(e.target.value)} style={{ padding: '10px 15px', borderRadius: '12px', border: `1px solid ${theme.border}`, background: theme.inputBg, color: theme.text, fontSize: '11px', outline: 'none', width: '150px' }} />
+              <input aria-label="Cari proyek" placeholder="Cari proyek..." onChange={(e) => setSearchTerm(e.target.value)} className="search-project" />
             </div>
           </div>
 
@@ -396,7 +450,7 @@ function Home() {
                     {item.status === 'Berjalan' && <span className="spinner-icon">◌</span>}
                     {item.status?.toUpperCase() || 'PERENCANAAN'}
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  <div className="project-action-buttons">
                     {hasFullAccess && (
                       <button onClick={() => handleEditClick(item)} className="btn-nav" style={{border:`1px solid ${theme.border}`}}>EDIT</button>
                     )}
@@ -449,7 +503,7 @@ function Home() {
                     </div>
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                         <button type="button" onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '15px', border: `1px solid ${theme.border}`, background: 'none', color: theme.text, fontWeight:'700', fontSize:'11px' }}>BATAL</button>
-                        <button type="submit" style={{ flex: 1, padding: '14px', borderRadius: '15px', border: 'none', background: theme.accent, color: isDarkMode ? '#000' : '#fff', fontWeight: '800', fontSize:'11px' }}>UPDATE</button>
+                        <button type="submit" style={{ flex: 1, padding: '14px', borderRadius: '15px', border: 'none', background: theme.accent, color: isDarkMode ? '#000' : '#fff', fontWeight: '800', fontSize:'11px' }}>PERBARUI</button>
                     </div>
                 </form>
             </div>

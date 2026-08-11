@@ -53,7 +53,7 @@ function Login() {
       transition: background-color 0.4s ease;
     }
     .login-card { 
-      width: 100%; max-width: 380px; padding: 40px; text-align: center;
+      width: 100%; max-width: 380px; padding: 40px; text-align: center; box-sizing: border-box;
       background: ${isDarkMode ? theme.card : 'transparent'};
       border-radius: 24px;
       border: ${isDarkMode ? `1px solid ${theme.border}` : 'none'};
@@ -104,6 +104,10 @@ function Login() {
       filter: ${isDarkMode ? 'invert(1) brightness(2)' : 'none'};
       mix-blend-mode: ${isDarkMode ? 'screen' : 'multiply'};
     }
+    @media (max-width: 480px) {
+      .login-container { padding: 12px; box-sizing: border-box; }
+      .login-card { padding: 30px 20px; }
+    }
   `;
 
   return (
@@ -130,29 +134,29 @@ function Login() {
           )}
           
           <div style={{ marginBottom: '20px' }}>
-            <span className="label-min">Username</span>
+              <span className="label-min">Nama Pengguna</span>
             <input 
               className="login-input"
               type="text" 
-              placeholder="Enter username"
+                placeholder="Masukkan nama pengguna"
               onChange={(e) => setFormData({...formData, username: e.target.value})}
               required 
             />
           </div>
 
           <div style={{ marginBottom: '25px' }}>
-            <span className="label-min">Password</span>
+              <span className="label-min">Kata Sandi</span>
             <input 
               className="login-input"
               type="password" 
-              placeholder="Enter password"
+                placeholder="Masukkan kata sandi"
               onChange={(e) => setFormData({...formData, password: e.target.value})}
               required 
             />
           </div>
 
           <button type="submit" className="btn-login" disabled={loading}>
-            {loading ? 'AUTHENTICATING...' : 'ACCESS SYSTEM'}
+            {loading ? 'MEMVERIFIKASI...' : 'MASUK KE SISTEM'}
           </button>
         </form>
 

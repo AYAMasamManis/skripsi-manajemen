@@ -77,13 +77,13 @@ function UpdateProgress() {
     <div className="prog-container">
       <style>{styles}</style>
       <div className="header">
-        <h1>Progress Report</h1>
+        <h1>Laporan Progres</h1>
         <p>USER: {user?.nama_lengkap?.toUpperCase()}</p>
       </div>
 
       <div className="form-card">
         <form onSubmit={handleSubmit}>
-          <label>Project Name</label>
+          <label>Nama Proyek</label>
           <select value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)} required>
             <option value="">-- SELECT PROJECT --</option>
             {projects.map(p => (
@@ -91,7 +91,7 @@ function UpdateProgress() {
             ))}
           </select>
 
-          <label>Documentation (Photo)</label>
+          <label>Dokumentasi (Foto)</label>
           <input 
             id="fileInput"
             type="file" 
@@ -101,7 +101,7 @@ function UpdateProgress() {
             required 
           />
 
-          <label>Work Description</label>
+          <label>Deskripsi Pekerjaan</label>
           <textarea 
             placeholder="What has been done today?" 
             value={ket}
@@ -109,12 +109,12 @@ function UpdateProgress() {
           />
 
           <button type="submit" className="btn-submit" disabled={loading}>
-            {loading ? "SENDING..." : "SUBMIT REPORT"}
+            {loading ? "MENGIRIM..." : "KIRIM LAPORAN"}
           </button>
         </form>
       </div>
       
-      <button onClick={() => {localStorage.clear(); navigate('/login')}} className="btn-back">LOGOUT SYSTEM</button>
+      <button onClick={() => {localStorage.clear(); navigate('/login')}} className="btn-back">KELUAR DARI SISTEM</button>
     </div>
   );
 }

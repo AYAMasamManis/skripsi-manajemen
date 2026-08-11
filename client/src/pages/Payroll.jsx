@@ -108,7 +108,7 @@ function Payroll() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
     ws['!cols'] = [{wch:25}, {wch:15}, {wch:25}, {wch:10}, {wch:15}, {wch:15}, {wch:15}, {wch:20}];
-    XLSX.utils.book_append_sheet(wb, ws, "Payroll Report");
+    XLSX.utils.book_append_sheet(wb, ws, "Laporan Penggajian");
     XLSX.writeFile(wb, `VA_Payroll_Export.xlsx`);
   };
 
@@ -161,11 +161,20 @@ function Payroll() {
 
     @media (max-width: 950px) {
       .payroll-grid { grid-template-columns: 1fr; }
-      .top-nav { flex-direction: column; gap: 15px; position: static; }
+      .top-nav { flex-direction: column; align-items: stretch; gap: 15px; position: static; }
       .table-va thead { display: none; }
       .table-va tr { display: flex; flex-direction: column; padding: 20px; border-bottom: 1px solid ${theme.border}; }
       .table-va td { padding: 8px 0; border: none; }
       .table-va td:last-child { margin-top: 15px; border-top: 1px dashed ${theme.border}; padding-top: 15px; }
+      .container-payroll { padding: 20px 12px 35px; }
+      .card-va { padding: 22px 18px; border-radius: 20px; }
+      .top-nav > div { display: grid !important; grid-template-columns: 1fr 1fr; }
+      .top-nav select { width: 100% !important; }
+    }
+    @media (max-width: 520px) {
+      .top-nav > div { grid-template-columns: 1fr; }
+      form > div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+      h1 { font-size: 22px; letter-spacing: 6px; overflow-wrap: anywhere; }
     }
   `;
 
@@ -176,7 +185,7 @@ function Payroll() {
       <div className="top-nav">
         <Link to="/" className="btn-action-luxury">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> 
-          <span style={{marginLeft:'8px'}}>DASHBOARD</span>
+          <span style={{marginLeft:'8px'}}>BERANDA</span>
         </Link>
         
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -296,7 +305,7 @@ function Payroll() {
               </tbody>
             </table>
             {dataGaji.filter(g => (!g.bulan_gaji) || (Number(g.bulan_gaji) === Number(filterPeriode.bulan) && Number(g.tahun_gaji) === Number(filterPeriode.tahun))).length === 0 && (
-              <div style={{padding:'50px', textAlign:'center', opacity:0.4, fontSize:'11px', letterSpacing:'2px', fontWeight:'800'}}>RECORD EMPTY</div>
+              <div style={{padding:'50px', textAlign:'center', opacity:0.4, fontSize:'11px', letterSpacing:'2px', fontWeight:'800'}}>BELUM ADA DATA</div>
             )}
         </section>
       </div>

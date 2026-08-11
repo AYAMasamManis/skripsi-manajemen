@@ -22,6 +22,7 @@ if ($data) {
     $total_diterima = ($hari * $gaji) - $kasbon;
     $tanggal_bayar  = date('Y-m-d');
     $jenis_keluar   = 'keluar'; 
+    $kategori_upah  = 'Upah';
 
     // --- PROSES 1: SIMPAN KE PAYROLL ---
     $sql_payroll = "INSERT INTO payroll (project_id, nama_karyawan, jabatan, hari_kerja, gaji_perhari, kasbon, total_diterima, tanggal_bayar, bulan_gaji, tahun_gaji) 
@@ -36,11 +37,11 @@ if ($data) {
         $keterangan = "Gaji Karyawan: $nama ($jabatan) Periode " . $bulan_gaji . "/" . $tahun_gaji;
         
         // Sesuaikan dengan kolom tabel transactions kamu. Jika ada kolom tambahan, tambahkan di sini.
-        $sql_transaksi = "INSERT INTO transactions (project_id, jenis, jumlah, keterangan, tanggal) 
-                          VALUES (?, ?, ?, ?, ?)";
+        $sql_transaksi = "INSERT INTO transactions (project_id, jenis, kategori, jumlah, keterangan, tanggal)
+                          VALUES (?, ?, ?, ?, ?, ?)";
         
         $stmt2 = $conn->prepare($sql_transaksi);
-        $stmt2->bind_param("isdss", $project_id, $jenis_keluar, $total_diterima, $keterangan, $tanggal_bayar);
+        $stmt2->bind_param("issdss", $project_id, $jenis_keluar, $kategori_upah, $total_diterima, $keterangan, $tanggal_bayar);
         
         if($stmt2->execute()) {
             echo json_encode(["status" => "success", "message" => "Gaji tersimpan & Saldo terpotong"]);

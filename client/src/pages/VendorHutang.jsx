@@ -48,7 +48,7 @@ function VendorHutang() {
             ]);
 
         // Tambah Header
-        excelData.unshift(["NAMA VENDOR", "PROYEK", "TANGGAL STATEMENT", "TOTAL INVOICE", "SISA HUTANG"]);
+        excelData.unshift(["NAMA VENDOR", "PROYEK", "TANGGAL LAPORAN", "TOTAL TAGIHAN", "SISA HUTANG"]);
 
         const ws = XLSX.utils.aoa_to_sheet(excelData);
 
@@ -129,6 +129,7 @@ function VendorHutang() {
             font-size: 13px; width: 250px; transition: 0.3s;
         }
         .search-input:focus { border-color: ${theme.accent}; width: 300px; }
+        .nav-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
         .nav-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
@@ -136,10 +137,15 @@ function VendorHutang() {
         .animate-list { animation: fadeIn 0.5s ease forwards; }
 
         @media (max-width: 768px) {
-            .debt-card { flex-direction: column; align-items: flex-start; gap: 20px; padding: 25px; }
-            .top-nav { flex-direction: row; padding: 10px 15px; }
+            .container-v { padding: 18px 12px 35px; }
+            .debt-card { flex-direction: column; align-items: stretch; gap: 20px; padding: 22px 18px; }
+            .debt-card > div:last-child { text-align: left !important; }
+            .top-nav { flex-direction: column; align-items: stretch; position: static; padding: 12px; gap: 10px; }
+            .nav-actions { display: grid; grid-template-columns: 1fr 1fr; }
+            .total-banner { padding: 35px 18px; border-radius: 20px; }
             .total-banner h1 { font-size: 2.5rem !important; }
-            .search-input { width: 100%; }
+            .search-input, .search-input:focus { width: 100%; box-sizing: border-box; }
+            .vendor-name-amount { font-size: 21px; overflow-wrap: anywhere; }
         }
         
         @media print {
@@ -154,7 +160,7 @@ function VendorHutang() {
     if (loading) return (
         <div style={{ background: theme.bg, height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: theme.text }}>
             <style>{styles}</style>
-            <h1 style={{ fontFamily: 'Montserrat', letterSpacing: '8px', fontWeight: '300', fontSize: '14px' }}>SYNCHRONIZING...</h1>
+            <h1 style={{ fontFamily: 'Montserrat', letterSpacing: '8px', fontWeight: '300', fontSize: '14px' }}>MENYINKRONKAN...</h1>
         </div>
     );
 
@@ -165,34 +171,34 @@ function VendorHutang() {
             <div className="top-nav no-print">
                 <Link to="/" className="btn-luxury">
                     <svg className="nav-icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> 
-                    <span style={{marginLeft: '10px'}}>DASHBOARD</span>
+                    <span style={{marginLeft: '10px'}}>BERANDA</span>
                 </Link>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="nav-actions">
                     <button onClick={exportToExcel} className="btn-luxury">
                         <svg className="nav-icon" viewBox="0 0 24 24" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                        <span style={{marginLeft: '10px'}}>EXPORT EXCEL</span>
+                        <span style={{marginLeft: '10px'}}>EKSPOR EXCEL</span>
                     </button>
                     <button onClick={() => window.print()} className="btn-luxury">
                         <svg className="nav-icon" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-                        <span style={{marginLeft: '10px'}}>PRINT ARCHIVE</span>
+                        <span style={{marginLeft: '10px'}}>CETAK ARSIP</span>
                     </button>
                 </div>
             </div>
 
             <div className="total-banner">
-                <span className="form-label">Total Outstanding Liabilities</span>
+                <span className="form-label">Total Hutang Berjalan</span>
                 <h1 style={{ margin: '20px 0', fontSize: '4rem', fontWeight: '800', letterSpacing: '-2px' }}>
                     <span style={{ fontSize: '1.5rem', opacity: 0.2, marginRight: '15px', fontWeight: '400' }}>Rp</span>
                     {totalHutangGlobal.toLocaleString('id-ID')}
                 </h1>
-                <p style={{fontSize: '10px', color: '#888', letterSpacing: '3px'}}>VA CONSTRUCTION MANAGEMENT SYSTEM</p>
+                <p style={{fontSize: '10px', color: '#888', letterSpacing: '3px'}}>SISTEM MANAJEMEN KONSTRUKSI VA</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', flexWrap: 'wrap', gap: '20px' }}>
-                <h3 style={{ fontSize: '11px', letterSpacing: '5px', fontWeight: '800', margin: 0, opacity: 0.6 }}>VENDOR LIABILITIES</h3>
+                <h3 style={{ fontSize: '11px', letterSpacing: '5px', fontWeight: '800', margin: 0, opacity: 0.6 }}>HUTANG VENDOR</h3>
                 <input 
                     className="search-input"
-                    placeholder="Search vendor..." 
+                    placeholder="Cari vendor..."
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
@@ -211,10 +217,10 @@ function VendorHutang() {
                         </Link>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <span className="form-label">Statement Date</span>
+                        <span className="form-label">Tanggal Laporan</span>
                         <div style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px' }}>{debt.tanggal}</div>
                         <div style={{ fontSize: '10px', color: isDarkMode ? '#aaa' : '#444', marginTop: '15px', fontWeight: '600', padding: '6px 12px', border: `1px solid ${theme.border}`, borderRadius: '10px', display: 'inline-block' }}>
-                           Invoice: Rp {Number(debt.total_tagihan || 0).toLocaleString('id-ID')}
+                           Tagihan: Rp {Number(debt.total_tagihan || 0).toLocaleString('id-ID')}
                         </div>
                     </div>
                 </div>
@@ -223,7 +229,7 @@ function VendorHutang() {
 
             {debts.length === 0 && !loading && (
                 <div style={{ textAlign: 'center', padding: '100px 0', opacity: 0.2 }}>
-                    <h2 style={{letterSpacing: '10px', fontWeight: '300'}}>NO ACTIVE DEBTS</h2>
+                    <h2 style={{letterSpacing: '10px', fontWeight: '300'}}>TIDAK ADA HUTANG AKTIF</h2>
                 </div>
             )}
         </div>

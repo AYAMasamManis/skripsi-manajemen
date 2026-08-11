@@ -29,7 +29,7 @@ function ProjectPayChart({ projects = [], isDarkMode = false }) {
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: { labels: { color: textColor, usePointStyle: true, boxWidth: 8 } },
-      title: { display: true, text: 'PAY CHART PER PROYEK', color: textColor, font: { size: 11 }, padding: 16 },
+      title: { display: true, text: 'GRAFIK BIAYA PER PROYEK', color: textColor, font: { size: 11 }, padding: 16 },
       tooltip: { callbacks: { label: (context) => `${context.dataset.label}: Rp ${Number(context.raw || 0).toLocaleString('id-ID')}` } },
     },
     scales: {

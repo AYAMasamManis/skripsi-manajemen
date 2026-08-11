@@ -282,7 +282,7 @@ function ProjectDetail() {
       return result;
     }, {});
     const rows = [
-      ['RENCANA ANGGARAN BIAYA (PROJECT ACTUAL)'],
+      ['RENCANA ANGGARAN BIAYA (AKTUAL PROYEK)'],
       [`PEKERJAAN: ${projectInfo?.nama_proyek || '-'}`],
       [`KLIEN / LOKASI: ${projectInfo?.klien || '-'}`],
       [],
@@ -325,7 +325,7 @@ function ProjectDetail() {
 
     const totalProgress = grandTotal > 0 ? grandNominal / grandTotal : 0;
     dataRowIndexes.forEach(({ rowIndex, contractValue }) => { rows[rowIndex][7] = grandTotal > 0 ? contractValue / grandTotal : 0; });
-    rows.push(['', 'GRAND TOTAL', '', '', '', '', grandTotal, 1, totalProgress, grandNominal]);
+    rows.push(['', 'TOTAL KESELURUHAN', '', '', '', '', grandTotal, 1, totalProgress, grandNominal]);
     const grandTotalRowIndex = rows.length - 1;
     const roundedTotal = Math.round(grandTotal / 1000000) * 1000000;
     rows.push(['', 'PEMBULATAN', '', '', '', '', roundedTotal, 1, totalProgress, grandNominal]);
@@ -430,10 +430,14 @@ function ProjectDetail() {
     .weighted-progress-track { width: 100%; height: 14px; border-radius: 999px; background: ${isDarkMode ? '#242424' : '#eceff1'}; overflow: hidden; }
     .weighted-progress-fill { height: 100%; border-radius: inherit; background: ${theme.accent}; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1); }
     @media print { @page { size: A4; margin: 1cm; } body { background: white !important; color: black !important; } .no-print, .top-nav, button, form, .gallery-grid, input[type="file"], .btn-action-luxury { display: none !important; } .container-detail { padding: 0; width: 100%; } .card-va { box-shadow: none !important; border: none !important; padding: 10px 0 !important; background: white !important; } .stats-wrapper { display: flex !important; flex-wrap: wrap !important; gap: 15px !important; margin-bottom: 30px !important; } .stats-wrapper .card-va { border: 1px solid #eee !important; border-radius: 15px !important; padding: 15px !important; flex: 1 !important; } .table-va { font-size: 10px !important; width: 100% !important; border: 1px solid #eee !important; color: black !important; } th { background: #f9f9f9 !important; color: #000 !important; border-bottom: 2px solid #333 !important; } td { padding: 10px !important; border-bottom: 1px solid #eee !important; color: black !important; } h1 { font-size: 22px !important; letter-spacing: 8px !important; margin-bottom: 5px !important; color: black !important; } p { color: black !important; } }
-    @media (max-width: 900px) { .stats-wrapper { flex-direction: column !important; } .grid-cards { grid-template-columns: 1fr !important; } .top-nav { flex-direction: column; gap: 15px; position: static; } .transaction-form-grid { grid-template-columns: 1fr !important; } .table-container { overflow-x: auto; } }
+    .table-container { width: 100%; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    .table-scroll-hint { display: none; }
+    .top-nav-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+    @media (max-width: 900px) { .container-detail { padding: 20px 14px 35px; } .stats-wrapper { flex-direction: column !important; } .grid-cards { grid-template-columns: 1fr !important; } .top-nav { flex-direction: column; align-items: stretch !important; gap: 15px; position: static !important; padding: 14px !important; } .top-nav-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .transaction-form-grid { grid-template-columns: 1fr !important; } .table-scroll-hint { display: block; padding: 0 4px 10px; color: #888; font-size: 10px; } .card-va { padding: 22px 18px; border-radius: 20px; } }
+    @media (max-width: 520px) { .top-nav-actions { grid-template-columns: 1fr; } .gallery-grid { grid-template-columns: 1fr; } .stats-wrapper p { font-size: 20px !important; overflow-wrap: anywhere; } }
   `;
 
-  if (loading || !projectInfo) return <div style={{ background: theme.bg, height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: theme.text }}>SYNCING...</div>;
+  if (loading || !projectInfo) return <div style={{ background: theme.bg, height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', color: theme.text }}>MENYINKRONKAN...</div>;
 
   return (
     <div className="container-detail">
@@ -445,13 +449,13 @@ function ProjectDetail() {
       <div className="top-nav no-print" style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'40px', background: isDarkMode?'rgba(20,20,20,0.8)':'rgba(255,255,255,0.8)', padding:'15px 25px', borderRadius:'20px', border:`1px solid ${theme.border}`, position:'sticky', top:'10px', zIndex:1000, backdropFilter:'blur(10px)'}}>
         <Link to="/" className="btn-action-luxury">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{marginRight:'8px'}}><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            DASHBOARD
+            BERANDA
         </Link>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="top-nav-actions">
             <button onClick={downloadImportTemplate} className="btn-action-luxury">TEMPLATE EXCEL</button>
-            <button onClick={() => fileInputRef.current.click()} className="btn-action-luxury" style={{ background: '#27ae60', color: '#fff', border: 'none' }}>IMPORT EXCEL</button>
-            <button onClick={exportToExcel} className="btn-action-luxury">EXPORT EXCEL</button>
-            <button onClick={() => window.print()} className="btn-action-luxury" style={{background:theme.accent, color:isDarkMode?'#000':'#fff', border:'none'}}>PRINT ARCHIVE</button>
+            <button onClick={() => fileInputRef.current.click()} className="btn-action-luxury" style={{ background: '#27ae60', color: '#fff', border: 'none' }}>IMPOR EXCEL</button>
+            <button onClick={exportToExcel} className="btn-action-luxury">EKSPOR EXCEL</button>
+            <button onClick={() => window.print()} className="btn-action-luxury" style={{background:theme.accent, color:isDarkMode?'#000':'#fff', border:'none'}}>CETAK ARSIP</button>
         </div>
       </div>
 
@@ -489,10 +493,10 @@ function ProjectDetail() {
 
       <div className="stats-wrapper" style={{display:'flex', gap:'25px', marginBottom:'40px'}}>
         <div className="grid-cards" style={{flex:1.5, display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'15px'}}>
-            <div className="card-va"><span className="form-label" style={{color: '#2ecc71'}}>Income</span><p style={{fontSize:'24px', color:'#2ecc71', fontWeight:'800', margin:0}}>Rp {totalMasuk.toLocaleString('id-ID')}</p></div>
-            <div className="card-va" style={{ background: '#3498db', color: '#fff', border: 'none' }}><span className="form-label" style={{color:'#fff', opacity:0.8}}>Receivable</span><p style={{ fontSize: '24px', fontWeight: '800', margin:0 }}>Rp {sisaPiutangOwner.toLocaleString('id-ID')}</p></div>
-            <div className="card-va"><span className="form-label" style={{color:'#e67e22'}}>Vendor Debt</span><p style={{fontSize:'24px', color:'#e67e22', fontWeight:'800', margin:0}}>Rp {totalHutangVendor.toLocaleString('id-ID')}</p></div>
-            <div className="card-va" style={{ background: isDarkMode ? '#fff' : '#1a1a1a', color: isDarkMode ? '#000' : '#fff', border: 'none' }}><span className="form-label" style={{color:'inherit', opacity:0.6}}>Rem. Budget</span><p style={{ fontSize: '24px', fontWeight: '800', margin:0 }}>Rp {sisaSaldoProject.toLocaleString('id-ID')}</p></div>
+            <div className="card-va"><span className="form-label" style={{color: '#2ecc71'}}>Pemasukan</span><p style={{fontSize:'24px', color:'#2ecc71', fontWeight:'800', margin:0}}>Rp {totalMasuk.toLocaleString('id-ID')}</p></div>
+            <div className="card-va" style={{ background: '#3498db', color: '#fff', border: 'none' }}><span className="form-label" style={{color:'#fff', opacity:0.8}}>Piutang</span><p style={{ fontSize: '24px', fontWeight: '800', margin:0 }}>Rp {sisaPiutangOwner.toLocaleString('id-ID')}</p></div>
+            <div className="card-va"><span className="form-label" style={{color:'#e67e22'}}>Hutang Vendor</span><p style={{fontSize:'24px', color:'#e67e22', fontWeight:'800', margin:0}}>Rp {totalHutangVendor.toLocaleString('id-ID')}</p></div>
+            <div className="card-va" style={{ background: isDarkMode ? '#fff' : '#1a1a1a', color: isDarkMode ? '#000' : '#fff', border: 'none' }}><span className="form-label" style={{color:'inherit', opacity:0.6}}>Sisa Anggaran</span><p style={{ fontSize: '24px', fontWeight: '800', margin:0 }}>Rp {sisaSaldoProject.toLocaleString('id-ID')}</p></div>
         </div>
 
         <div className="card-va" style={{ flex: 1, display: 'flex', flexDirection:'column', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
@@ -505,20 +509,20 @@ function ProjectDetail() {
                 <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '15px', fontWeight: '800', fontFamily: 'Montserrat' }}>{Math.round(expensePercent)}%</div>
             </div>
             <div style={{textAlign:'center'}}>
-                <span className="form-label">Budget Health</span>
+                <span className="form-label">Kondisi Anggaran</span>
                 <p style={{ margin: 0, fontSize: '11px', fontWeight: '900', color: expensePercent > 100 ? '#e74c3c' : '#2ecc71', letterSpacing:'1.5px', fontFamily:'Montserrat' }}>
-                    {expensePercent > 100 ? '⚠️ OVER BUDGET' : '✅ ON TRACK'}
+                    {expensePercent > 100 ? '⚠️ MELEBIHI ANGGARAN' : '✅ SESUAI RENCANA'}
                 </p>
             </div>
         </div>
       </div>
 
       <div className="card-va no-print" style={{ marginBottom: '40px' }}>
-        <span className="form-label">Progress Documentation ({progressFotos.length})</span>
+        <span className="form-label">Dokumentasi Progres ({progressFotos.length})</span>
         <form onSubmit={handleUploadProgress} style={{ display: 'flex', gap: '15px', marginBottom: '30px', flexWrap: 'wrap' }}>
           <input type="file" onChange={e => setFotoProgress(e.target.files[0])} style={{ flex: 1, minWidth: '200px' }} />
           <input placeholder="Keterangan progress..." value={ketProgress} onChange={e => setKetProgress(e.target.value)} style={{ flex: 2, minWidth: '200px' }} />
-          <button type="submit" className="btn-save" style={{ padding: '0 35px' }}>Upload Progress</button>
+          <button type="submit" className="btn-save" style={{ padding: '0 35px' }}>Unggah Progres</button>
         </form>
         <div className="gallery-grid">
           {progressFotos.map(foto => (
@@ -532,38 +536,39 @@ function ProjectDetail() {
       </div>
 
       <div className="card-va no-print" style={{marginBottom: '40px'}}>
-        <span className="form-label">{isEditing ? "✎ Edit Transaction Details" : "+ Register New Transaction"}</span>
+        <span className="form-label">{isEditing ? "✎ Edit Detail Transaksi" : "+ Catat Transaksi Baru"}</span>
         <form onSubmit={handleSubmit} className="transaction-form-grid">
-          <div><label className="form-label">Category</label><select value={formData.jenis} onChange={e => setFormData({...formData, jenis: e.target.value})}><option value="Keluar">Expense</option><option value="Masuk">Income</option></select></div>
-          <div><label className="form-label">Vendor</label><input placeholder="Name" value={formData.vendor} onChange={e => setFormData({...formData, vendor: e.target.value})} /></div>
-          <div><label className="form-label">Description Group</label>
+          <div><label className="form-label">Jenis</label><select value={formData.jenis} onChange={e => setFormData({...formData, jenis: e.target.value})}><option value="Keluar">Pengeluaran</option><option value="Masuk">Pemasukan</option></select></div>
+          <div><label className="form-label">Vendor</label><input placeholder="Nama vendor" value={formData.vendor} onChange={e => setFormData({...formData, vendor: e.target.value})} /></div>
+          <div><label className="form-label">Kelompok Deskripsi</label>
             <select value={formData.kategori} onChange={e => setFormData({...formData, kategori: e.target.value})}>
-                <option value="">Select Group</option>
+                <option value="">Pilih Kelompok</option>
                 <option value="Material">Material</option>
                 <option value="Subcon">Subcon / Vendor</option>
                 <option value="Upah">Upah / Pegawai</option>
                 <option value="Lainnya">Lainnya</option>
             </select>
           </div>
-          <div><label className="form-label">PIC</label><input placeholder="Name" value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} /></div>
-          <div><label className="form-label">Invoice (Rp)</label><input placeholder="0" value={formatNumber(formData.total_tagihan)} onChange={(e) => handleAmountChange(e, 'total_tagihan')} disabled={formData.jenis === 'Masuk'} /></div>
-          <div><label className="form-label">Paid (Rp)</label><input placeholder="0" value={formatNumber(formData.jumlah)} onChange={(e) => handleAmountChange(e, 'jumlah')} style={{fontWeight:'800'}} /></div>
-          <div><label className="form-label">Attach</label><input type="file" onChange={e => setFile(e.target.files[0])} style={{border:'none', fontSize:'10px', paddingTop:'12px'}} /></div>
-          <button type="submit" className="btn-save">{isEditing ? "Update" : "Post"}</button>
+          <div><label className="form-label">PIC</label><input placeholder="Nama PIC" value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} /></div>
+          <div><label className="form-label">Tagihan (Rp)</label><input placeholder="0" value={formatNumber(formData.total_tagihan)} onChange={(e) => handleAmountChange(e, 'total_tagihan')} disabled={formData.jenis === 'Masuk'} /></div>
+          <div><label className="form-label">Dibayar (Rp)</label><input placeholder="0" value={formatNumber(formData.jumlah)} onChange={(e) => handleAmountChange(e, 'jumlah')} style={{fontWeight:'800'}} /></div>
+          <div><label className="form-label">Lampiran</label><input type="file" onChange={e => setFile(e.target.files[0])} style={{border:'none', fontSize:'10px', paddingTop:'12px'}} /></div>
+          <button type="submit" className="btn-save">{isEditing ? "Perbarui" : "Simpan"}</button>
         </form>
-        {isEditing && <button onClick={cancelEdit} style={{marginTop:'15px', background:'none', border:`1px solid ${theme.border}`, color:theme.text, padding:'10px', borderRadius:'10px', width:'100%', fontSize:'10px', cursor:'pointer'}}>Cancel Editing</button>}
+        {isEditing && <button onClick={cancelEdit} style={{marginTop:'15px', background:'none', border:`1px solid ${theme.border}`, color:theme.text, padding:'10px', borderRadius:'10px', width:'100%', fontSize:'10px', cursor:'pointer'}}>Batal Mengedit</button>}
       </div>
 
-      <div className="table-container" style={{background:theme.card, borderRadius:'28px', border:`1px solid ${theme.border}`, overflow:'hidden'}}>
+      <div className="table-scroll-hint">Geser tabel ke samping untuk melihat semua kolom.</div>
+      <div className="table-container" style={{background:theme.card, borderRadius:'28px', border:`1px solid ${theme.border}`}}>
         <table className="table-va">
-            <thead><tr><th>DATE</th><th>DETAILS & AUTHORIZATION</th><th style={{textAlign:'right'}}>AMOUNT</th><th style={{textAlign:'right'}}>REMAINING DEBT</th><th className="no-print" style={{textAlign:'center'}}>MANAGEMENT</th></tr></thead>
+            <thead><tr><th>TANGGAL</th><th>DETAIL & OTORISASI</th><th style={{textAlign:'right'}}>JUMLAH</th><th style={{textAlign:'right'}}>SISA HUTANG</th><th className="no-print" style={{textAlign:'center'}}>AKSI</th></tr></thead>
             <tbody>
                 {transaksi.map(t => (
                     <tr key={t.id}>
                         <td style={{fontSize:'11px', color:'#888', fontWeight:'500'}}>{t.tanggal}</td>
                         <td>
                           <div style={{fontWeight:'700', fontSize:'14px'}}>
-                            {t.vendor || t.keterangan || "PAYROLL SYSTEM"}
+                            {t.vendor || t.keterangan || "SISTEM PENGGAJIAN"}
                           </div>
                           <div style={{fontSize:'11px', color:'#666', marginTop:'4px'}}>
                             {t.kategori || "Payroll Disbursement"} {t.pic ? `• PIC: ${t.pic}` : ''}
@@ -577,13 +582,13 @@ function ProjectDetail() {
                         </td>
                         <td className="no-print" style={{textAlign:'center'}}>
                           <div style={{display:'flex', gap:'8px', justifyContent:'center'}}>
-                            <button className="btn-action-luxury" onClick={() => openStackModal(t.id)} title="View Proofs">
+                            <button className="btn-action-luxury" onClick={() => openStackModal(t.id)} title="Lihat bukti">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                             </button>
-                            <button className="btn-action-luxury" onClick={() => startEdit(t)} title="Edit">
+                            <button className="btn-action-luxury" onClick={() => startEdit(t)} title="Edit transaksi">
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             </button>
-                            <button className="btn-action-luxury btn-delete-luxury" onClick={() => handleDeleteTransaction(t.id)} title="Delete" style={{ color:'#ff4757', border:'1.5px solid rgba(255,71,87,0.2)'}}>
+                            <button className="btn-action-luxury btn-delete-luxury" onClick={() => handleDeleteTransaction(t.id)} title="Hapus transaksi" style={{ color:'#ff4757', border:'1.5px solid rgba(255,71,87,0.2)'}}>
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                   <polyline points="3 6 5 6 21 6"></polyline>
                                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -602,10 +607,10 @@ function ProjectDetail() {
       {showStackModal && (
         <div style={{ position: 'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.85)', zIndex:10000, display:'flex', justifyContent:'center', alignItems:'center', backdropFilter:'blur(15px)' }} onClick={() => setShowStackModal(false)}>
             <div className="card-va" style={{ width:'95%', maxWidth:'500px' }} onClick={e => e.stopPropagation()}>
-                <span className="form-label">Transaction Proofs</span>
+                <span className="form-label">Bukti Transaksi</span>
                 <div style={{display:'flex', gap:'12px', margin:'25px 0'}}>
                     <input type="file" onChange={e => setNewStackFile(e.target.files[0])} style={{fontSize:'11px'}} />
-                    <button onClick={handleAddStackProof} className="btn-save" style={{padding:'0 25px'}}>Add</button>
+                    <button onClick={handleAddStackProof} className="btn-save" style={{padding:'0 25px'}}>Tambah</button>
                 </div>
                 <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:'15px'}}>
                     {stackFiles && stackFiles.length > 0 ? stackFiles.map(s => (
@@ -615,7 +620,7 @@ function ProjectDetail() {
                         </div>
                     )) : <p style={{gridColumn:'span 3', textAlign:'center', color:'#888', fontSize:'12px'}}>Belum ada bukti transfer.</p>}
                 </div>
-                <button onClick={() => setShowStackModal(false)} style={{width:'100%', marginTop:'25px', cursor:'pointer'}} className="btn-action-luxury">CLOSE</button>
+                <button onClick={() => setShowStackModal(false)} style={{width:'100%', marginTop:'25px', cursor:'pointer'}} className="btn-action-luxury">TUTUP</button>
             </div>
         </div>
       )}

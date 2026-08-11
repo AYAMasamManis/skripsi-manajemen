@@ -51,15 +51,15 @@ function Reports() {
     const exportToExcel = () => {
         const wb = XLSX.utils.book_new();
         const monthlyData = reportData.map(d => [d.bulan, { v: d.income, t: 'n', z: 'Rp #,##0' }, { v: d.expense, t: 'n', z: 'Rp #,##0' }, { v: d.profit, t: 'n', z: 'Rp #,##0' }]);
-        monthlyData.unshift(["BULAN", "INCOME", "EXPENSE", "NET PROFIT"]);
+        monthlyData.unshift(["BULAN", "PEMASUKAN", "PENGELUARAN", "LABA BERSIH"]);
         const ws1 = XLSX.utils.aoa_to_sheet(monthlyData);
         const categoryDataExcel = categoryData.map(d => [d.name, { v: d.value, t: 'n', z: 'Rp #,##0' }]);
         categoryDataExcel.unshift(["KATEGORI", "TOTAL PENGELUARAN"]);
         const ws2 = XLSX.utils.aoa_to_sheet(categoryDataExcel);
         ws1['!cols'] = [{wch:20}, {wch:20}, {wch:20}, {wch:20}];
         ws2['!cols'] = [{wch:30}, {wch:25}];
-        XLSX.utils.book_append_sheet(wb, ws1, "Monthly Performance");
-        XLSX.utils.book_append_sheet(wb, ws2, "Expense Distribution");
+        XLSX.utils.book_append_sheet(wb, ws1, "Kinerja Bulanan");
+        XLSX.utils.book_append_sheet(wb, ws2, "Distribusi Pengeluaran");
         XLSX.writeFile(wb, `VA_Fiscal_Report_${selectedYear}.xlsx`);
     };
 
@@ -91,6 +91,8 @@ function Reports() {
         .form-label { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: ${theme.subText}; text-transform: uppercase; margin-bottom: 25px; display: block; }
         
         .table-va { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .report-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         th { text-align: left; padding: 18px 15px; font-size: 11px; color: ${theme.text}; border-bottom: 2.5px solid ${theme.border}; letter-spacing: 1.5px; font-weight: 800; }
         td { padding: 22px 15px; border-bottom: 1px solid ${theme.border}; color: ${theme.text}; }
 
@@ -122,13 +124,14 @@ function Reports() {
         }
 
         @media (max-width: 1050px) { .chart-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 700px) { .container-reports { padding: 18px 12px 35px; } .top-nav { position: static; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; } .report-actions { display: grid; grid-template-columns: 1fr 1fr; } .year-select { grid-column: 1 / -1; width: 100%; } .btn-nav-action { justify-content: center; padding: 11px 8px; } h1 { font-size: 24px; letter-spacing: 6px; overflow-wrap: anywhere; } .card-va { padding: 20px 14px; border-radius: 20px; } .chart-item { height: 320px !important; min-width: 0; } .table-va { min-width: 620px; } }
     `;
 
     if (loading) return (
         <div style={{ background: theme.bg, height: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: theme.text }}>
             <style>{styles}</style>
             <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
-            <h1 style={{ letterSpacing: '10px', fontSize: '15px' }}>SYNCHRONIZING...</h1>
+                <h1 style={{ letterSpacing: '10px', fontSize: '15px' }}>MENYINKRONKAN...</h1>
         </div>
     )
 
@@ -139,28 +142,28 @@ function Reports() {
             <div className="top-nav no-print">
                 <Link to="/" className="btn-nav-action" style={{ background: 'none', color: theme.text }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> 
-                    <span>DASHBOARD</span>
+                    <span>BERANDA</span>
                 </Link>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="report-actions">
                     <select className="year-select" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
                         {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                     <button onClick={exportToExcel} className="btn-nav-action">
-                        <span>EXPORT EXCEL</span>
+                        <span>EKSPOR EXCEL</span>
                     </button>
                     <button onClick={() => window.print()} className="btn-nav-action">
-                        <span>PRINT ARCHIVE</span>
+                        <span>CETAK ARSIP</span>
                     </button>
                 </div>
             </div>
 
             <header style={{ textAlign: 'center', marginBottom: '60px' }}>
-                <h1>Financial Intel</h1>
+                <h1>Analisis Keuangan</h1>
                 <p style={{ fontSize: '10px', color: theme.subText, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '15px', fontFamily: 'Montserrat' }}>VA Construction • {selectedYear}</p>
             </header>
 
             <div className="card-va">
-                <span className="form-label">Performance & Asset Allocation</span>
+                <span className="form-label">Kinerja & Alokasi Aset</span>
                 <div className="chart-grid">
                     <div className="chart-item" style={{ width: '100%', height: 400 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -176,8 +179,8 @@ function Reports() {
                                     formatter={(value) => formatRupiah(value)}
                                 />
                                 <Legend verticalAlign="top" align="left" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: '800', paddingBottom: '20px', color: theme.text, fontFamily: 'Montserrat' }} />
-                                <Bar dataKey="income" fill="#2ecc71" radius={[4, 4, 0, 0]} barSize={25} />
-                                <Bar dataKey="expense" fill="#e74c3c" radius={[4, 4, 0, 0]} barSize={25} />
+                                <Bar dataKey="income" name="Pemasukan" fill="#2ecc71" radius={[4, 4, 0, 0]} barSize={25} />
+                                <Bar dataKey="expense" name="Pengeluaran" fill="#e74c3c" radius={[4, 4, 0, 0]} barSize={25} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -203,15 +206,15 @@ function Reports() {
             </div>
 
             <div className="card-va" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '30px' }}><span className="form-label">Fiscal Ledger Summary</span></div>
-                <div style={{ padding: '0 30px 30px 30px' }}>
+                <div style={{ padding: '30px' }}><span className="form-label">Ringkasan Buku Besar Keuangan</span></div>
+                <div className="table-scroll">
                     <table className="table-va">
                         <thead>
                             <tr>
-                                <th>MONTH</th>
-                                <th style={{ textAlign: 'right' }}>INCOME</th>
-                                <th style={{ textAlign: 'right' }}>EXPENSE</th>
-                                <th style={{ textAlign: 'right' }}>NET RESULT</th>
+                                <th>BULAN</th>
+                                <th style={{ textAlign: 'right' }}>PEMASUKAN</th>
+                                <th style={{ textAlign: 'right' }}>PENGELUARAN</th>
+                                <th style={{ textAlign: 'right' }}>HASIL BERSIH</th>
                             </tr>
                         </thead>
                         <tbody>

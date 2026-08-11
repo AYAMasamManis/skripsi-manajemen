@@ -43,7 +43,7 @@ function SalarySlip() {
                     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
                 `}</style>
                 <h1 style={{ fontFamily: 'Montserrat', letterSpacing: '5px', fontWeight: '300', animation: 'pulse 1.5s infinite' }}>
-                    SYNCHRONIZING DOCUMENT...
+                    MENYINKRONKAN DOKUMEN...
                 </h1>
                 <p style={{ fontSize: '10px', marginTop: '10px', opacity: 0.5 }}>Pastikan ID Proyek benar atau data sudah ada di database.</p>
             </div>
@@ -117,7 +117,7 @@ function SalarySlip() {
                 </button>
                 <button onClick={() => window.print()} className="btn-nav" style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff' }}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
-                    PRINT SLIP
+                    CETAK SLIP
                 </button>
             </div>
 
@@ -127,7 +127,7 @@ function SalarySlip() {
                     <div style={{ textAlign: 'center', marginBottom: '50px', borderBottom: '1.5px solid #000', paddingBottom: '30px' }}>
                         <img src="/logo-va.jpeg" alt="Logo" style={{ height: '60px', marginBottom: '15px', mixBlendMode: 'multiply' }} />
                         <h2 style={{ letterSpacing: '10px', margin: '0', fontWeight: '300', fontSize: '24px', textTransform: 'uppercase' }}>Virtual Actualize</h2>
-                        <p style={{ fontSize: '10px', letterSpacing: '5px', textTransform: 'uppercase', margin: '8px 0', fontStyle: 'italic', opacity: 0.6 }}>Renovation & Construction Professional</p>
+                <p style={{ fontSize: '10px', letterSpacing: '5px', textTransform: 'uppercase', margin: '8px 0', fontStyle: 'italic', opacity: 0.6 }}>Profesional Renovasi & Konstruksi</p>
                     </div>
 
                     {/* Info Penerima */}
@@ -158,7 +158,7 @@ function SalarySlip() {
 
                     {/* Grand Total */}
                     <div style={{ background: '#000', color: '#fff', padding: '30px', borderRadius: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '3px' }}>TOTAL TAKE HOME PAY</div>
+                <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '3px' }}>TOTAL GAJI BERSIH</div>
                         <div style={{ fontSize: '28px', fontWeight: '800' }}>Rp {totalTakeHomePay.toLocaleString('id-ID')}</div>
                     </div>
 
@@ -172,7 +172,7 @@ function SalarySlip() {
                         <div style={{ textAlign: 'center', width: '200px' }}>
                             <p style={{ fontSize: '11px', marginBottom: '60px', opacity: 0.6 }}>Administrasi,</p>
                             <div style={{ borderTop: '1.5px solid #000', width: '160px', margin: '0 auto' }}></div>
-                            <p style={{ fontSize: '11px', fontWeight: '700', marginTop: '10px' }}>Finance Dept.</p>
+                    <p style={{ fontSize: '11px', fontWeight: '700', marginTop: '10px' }}>Bagian Keuangan</p>
                         </div>
                     </div>
 

@@ -7,7 +7,10 @@ include 'connection.php';
 date_default_timezone_set('Asia/Jakarta');
 
 // MENERIMA FILTER TAHUN (Default ke tahun sekarang jika tidak ada kiriman)
-$tahun = isset($_GET['year']) ? $_GET['year'] : date('Y');
+$tahun = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
+if ($tahun < 2000 || $tahun > 2100) {
+    $tahun = (int)date('Y');
+}
 
 $response = [
     "monthly_stats" => [],
@@ -50,7 +53,12 @@ $sql_category = "SELECT
                         WHEN kategori LIKE '%BATA%' OR kategori LIKE '%DINDING%' THEN 'PEKERJAAN DINDING'
                         WHEN kategori LIKE '%LANTAI%' OR kategori LIKE '%KERAMIK%' THEN 'PEKERJAAN LANTAI'
                         WHEN kategori LIKE '%ATAP%' OR kategori LIKE '%PLAFON%' THEN 'PEKERJAAN ATAP'
-                        WHEN kategori LIKE '%GAJI%' OR kategori LIKE '%PAYROLL%' THEN 'PAYROLL / UPAH'
+                        WHEN UPPER(COALESCE(kategori, '')) LIKE '%UPAH%'
+                          OR UPPER(COALESCE(kategori, '')) LIKE '%GAJI%'
+                          OR UPPER(COALESCE(kategori, '')) LIKE '%PAYROLL%'
+                          OR UPPER(COALESCE(keterangan, '')) LIKE '%GAJI KARYAWAN%'
+                          OR UPPER(COALESCE(keterangan, '')) LIKE '%PAYROLL%'
+                        THEN 'UPAH KARYAWAN'
                         WHEN kategori LIKE '%LISTRIK%' OR kategori LIKE '%PIPA%' THEN 'MEP (LISTRIK & AIR)'
                         WHEN kategori LIKE '%KAYU%' OR kategori LIKE '%KUSEN%' THEN 'KUSEN & PINTU'
                         WHEN kategori LIKE '%SEMEN%' OR kategori LIKE '%PASIR%' OR kategori LIKE '%BETON%' THEN 'MATERIAL UTAMA'

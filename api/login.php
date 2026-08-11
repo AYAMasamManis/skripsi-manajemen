@@ -27,7 +27,7 @@ if ($data && isset($data->username) && isset($data->password)) {
     // MD5 sesuai dengan settingan Laragon kamu sebelumnya
     $hashed_password = md5($password);
 
-    $stmt = $conn->prepare("SELECT id, username, nama_lengkap, password FROM users WHERE username = ?");
+    $stmt = $conn->prepare("SELECT id, username, nama_lengkap, role, password FROM users WHERE username = ?");
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
