@@ -155,7 +155,7 @@ function ProjectDetail() {
 
   const handleTransactionStatus = async (transactionId, status) => {
     try {
-      await axios.post('update_transaction_status.php', { id: transactionId, status });
+      await axios.post('update_transaction_status.php', { id: transactionId, status, updated_by: userVa?.nama_lengkap || userVa?.username || 'Pengguna tidak diketahui' });
       await fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal memperbarui status transaksi.');
@@ -392,6 +392,7 @@ function ProjectDetail() {
     data.append('total_tagihan', formData.jenis === 'Masuk' ? '0' : cleanNumber(formData.total_tagihan)); 
     data.append('vendor', formData.vendor);
     data.append('pic', formData.pic);
+    data.append('updated_by', userVa?.nama_lengkap || userVa?.username || 'Pengguna tidak diketahui');
     if (file) data.append('bukti', file);
     let url = isEditing ? 'edit_transaction.php' : 'add_transaction.php';
     if (isEditing) data.append('id', editId); 
@@ -575,6 +576,9 @@ function ProjectDetail() {
                           </div>
                           <div style={{fontSize:'11px', color:'#666', marginTop:'4px'}}>
                             {t.kategori || "Payroll Disbursement"} {t.pic ? `• PIC: ${t.pic}` : ''}
+                          </div>
+                          <div style={{fontSize:'9px', color:'#888', marginTop:'6px'}}>
+                            Update terakhir: {t.last_updated_by || 'Belum pernah diperbarui'}{t.last_updated_at ? ` • ${new Date(t.last_updated_at.replace(' ', 'T')).toLocaleString('id-ID')}` : ''}
                           </div>
                         </td>
                         <td style={{textAlign:'right', fontWeight:'800', color: t.jenis?.toLowerCase().includes('masuk') ? '#2ecc71' : (isDarkMode ? '#f0f0f0' : '#1a1a1a')}}>

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
 function Payroll() {
+  const userVa = JSON.parse(localStorage.getItem('user_va'));
   const [proyek, setProyek] = useState([])
   const [dataGaji, setDataGaji] = useState([])
   const [isDarkMode] = useState(localStorage.getItem('nightMode') === 'true');
@@ -82,7 +83,7 @@ function Payroll() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await axios.post('update_payroll_status.php', { id, status });
+      await axios.post('update_payroll_status.php', { id, status, updated_by: userVa?.nama_lengkap || userVa?.username || 'Pengguna tidak diketahui' });
       await fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Gagal memperbarui status payroll.');
@@ -283,6 +284,9 @@ function Payroll() {
                       <div style={{ fontSize: '10px', color: '#888', marginTop: '4px', fontWeight: '700', textTransform: 'uppercase' }}>{g.nama_proyek} • {g.jabatan}</div>
                       <div style={{ fontSize: '10px', color: g.bulan_gaji ? '#2ecc71' : '#e67e22', fontWeight: '800', marginTop: '4px' }}>
                         {g.bulan_gaji ? `${namaBulan[g.bulan_gaji-1]} ${g.tahun_gaji}` : 'ARSIP LAMA'}
+                      </div>
+                      <div style={{ fontSize:'9px', color:'#888', marginTop:'6px' }}>
+                        Update terakhir: {g.last_updated_by || 'Belum pernah diperbarui'}{g.last_updated_at ? ` • ${new Date(g.last_updated_at.replace(' ', 'T')).toLocaleString('id-ID')}` : ''}
                       </div>
                     </td>
                     <td style={{ textAlign: 'right' }}>

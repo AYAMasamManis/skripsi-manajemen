@@ -8,6 +8,14 @@ $status_column = $conn->query("SHOW COLUMNS FROM payroll LIKE 'status_pembayaran
 if ($status_column && $status_column->num_rows === 0) {
     $conn->query("ALTER TABLE payroll ADD COLUMN status_pembayaran VARCHAR(20) NOT NULL DEFAULT 'Dibayar'");
 }
+$updated_by_column = $conn->query("SHOW COLUMNS FROM payroll LIKE 'last_updated_by'");
+if ($updated_by_column && $updated_by_column->num_rows === 0) {
+    $conn->query("ALTER TABLE payroll ADD COLUMN last_updated_by VARCHAR(150) NULL");
+}
+$updated_at_column = $conn->query("SHOW COLUMNS FROM payroll LIKE 'last_updated_at'");
+if ($updated_at_column && $updated_at_column->num_rows === 0) {
+    $conn->query("ALTER TABLE payroll ADD COLUMN last_updated_at DATETIME NULL");
+}
 
 // Menyiapkan array penampung data
 $data = [];
@@ -29,6 +37,8 @@ $sql = "SELECT
             payroll.bulan_gaji,  /* <--- TAMBAHKAN INI */
             payroll.tahun_gaji,  /* <--- TAMBAHKAN INI */
             payroll.status_pembayaran,
+            payroll.last_updated_by,
+            payroll.last_updated_at,
             projects.nama_proyek 
         FROM payroll 
         LEFT JOIN projects ON payroll.project_id = projects.id 

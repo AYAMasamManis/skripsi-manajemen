@@ -17,6 +17,16 @@ $id = $_POST['id'];
 $jenis = $_POST['jenis'];
 $kategori = $_POST['kategori'];
 $jumlah = $_POST['jumlah'];
+$updated_by = substr(trim($_POST['updated_by'] ?? 'Pengguna tidak diketahui'), 0, 150);
+
+$updated_by_column = $conn->query("SHOW COLUMNS FROM transactions LIKE 'last_updated_by'");
+if ($updated_by_column && $updated_by_column->num_rows === 0) {
+    $conn->query("ALTER TABLE transactions ADD COLUMN last_updated_by VARCHAR(150) NULL");
+}
+$updated_at_column = $conn->query("SHOW COLUMNS FROM transactions LIKE 'last_updated_at'");
+if ($updated_at_column && $updated_at_column->num_rows === 0) {
+    $conn->query("ALTER TABLE transactions ADD COLUMN last_updated_at DATETIME NULL");
+}
 
 // Cek apakah ada upload bukti baru
 if (isset($_FILES['bukti']) && $_FILES['bukti']['error'] == 0) {
@@ -41,15 +51,15 @@ if (isset($_FILES['bukti']) && $_FILES['bukti']['error'] == 0) {
     move_uploaded_file($_FILES["bukti"]["tmp_name"], $target_dir . $bukti_nama);
     
     // 3. Update dengan gambar baru (Prepared Statement)
-    $sql = "UPDATE transactions SET jenis=?, kategori=?, jumlah=?, bukti=? WHERE id=?";
+    $sql = "UPDATE transactions SET jenis=?, kategori=?, jumlah=?, bukti=?, last_updated_by=?, last_updated_at=NOW() WHERE id=?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssdsi", $jenis, $kategori, $jumlah, $bukti_nama, $id);
+    $stmt->bind_param("ssdssi", $jenis, $kategori, $jumlah, $bukti_nama, $updated_by, $id);
 
 } else {
     // Update tanpa mengubah gambar (Prepared Statement)
-    $sql = "UPDATE transactions SET jenis=?, kategori=?, jumlah=? WHERE id=?";
+    $sql = "UPDATE transactions SET jenis=?, kategori=?, jumlah=?, last_updated_by=?, last_updated_at=NOW() WHERE id=?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ssdi", $jenis, $kategori, $jumlah, $id);
+    $stmt->bind_param("ssdsi", $jenis, $kategori, $jumlah, $updated_by, $id);
 }
 
 // Eksekusi

@@ -14,6 +14,15 @@ $global = isset($_GET['global']) ? filter_var($_GET['global'], FILTER_VALIDATE_B
 
 $transactions = [];
 
+$updated_by_column = $conn->query("SHOW COLUMNS FROM transactions LIKE 'last_updated_by'");
+if ($updated_by_column && $updated_by_column->num_rows === 0) {
+    $conn->query("ALTER TABLE transactions ADD COLUMN last_updated_by VARCHAR(150) NULL");
+}
+$updated_at_column = $conn->query("SHOW COLUMNS FROM transactions LIKE 'last_updated_at'");
+if ($updated_at_column && $updated_at_column->num_rows === 0) {
+    $conn->query("ALTER TABLE transactions ADD COLUMN last_updated_at DATETIME NULL");
+}
+
 try {
     if ($global === true) {
         // 1. AMBIL SEMUA TRANSAKSI (Dashboard Home) - Tanpa parameter input
