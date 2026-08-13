@@ -80,9 +80,12 @@ function Payroll() {
       .catch(err => alert("Gagal simpan: " + err));
   }
 
-  const handleDelete = (id) => {
-    if (window.confirm("Hapus riwayat gaji ini secara permanen?")) {
-      axios.post('delete_payroll.php', { id }).then(() => fetchData());
+  const handleStatusChange = async (id, status) => {
+    try {
+      await axios.post('update_payroll_status.php', { id, status });
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal memperbarui status payroll.');
     }
   }
 
@@ -100,10 +103,11 @@ function Payroll() {
       { v: Number(g.gaji_perhari), t: 'n', z: 'Rp #,##0' },
       { v: Number(g.kasbon), t: 'n', z: 'Rp #,##0' },
       { v: Number(g.total_diterima), t: 'n', z: 'Rp #,##0' },
-      g.bulan_gaji ? `${namaBulan[g.bulan_gaji-1]} ${g.tahun_gaji}` : 'Data Lama'
+      g.bulan_gaji ? `${namaBulan[g.bulan_gaji-1]} ${g.tahun_gaji}` : 'Data Lama',
+      g.status_pembayaran || 'Dibayar'
     ]);
 
-    excelData.unshift(["NAMA KARYAWAN", "JABATAN", "PROYEK", "HARI KERJA", "GAJI/HARI", "KASBON", "TOTAL TERIMA", "PERIODE"]);
+    excelData.unshift(["NAMA KARYAWAN", "JABATAN", "PROYEK", "HARI KERJA", "GAJI/HARI", "KASBON", "TOTAL TERIMA", "PERIODE", "STATUS"]);
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(excelData);
@@ -289,15 +293,9 @@ function Payroll() {
                         <Link className="btn-action-luxury" style={{padding:'10px'}} to={`/salary-slip/${g.id}`}>
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                         </Link>
-                        {/* ICON HAPUS BARU: Modern Trash Icon */}
-                        <button className="btn-action-luxury" onClick={() => handleDelete(g.id)} style={{ color: '#ff4757', padding:'10px', border:'1.5px solid rgba(255,71,87,0.2)' }}>
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                          </svg>
-                        </button>
+                        <select aria-label={`Status payroll ${g.nama_karyawan}`} title="Perbarui status payroll" value={g.status_pembayaran || 'Dibayar'} onChange={(e) => handleStatusChange(g.id, e.target.value)} style={{width:'125px', padding:'9px', fontSize:'10px', fontWeight:'800'}}>
+                          <option value="Dibayar">Dibayar</option><option value="Ditunda">Ditunda</option><option value="Dibatalkan">Dibatalkan</option>
+                        </select>
                       </div>
                     </td>
                   </tr>

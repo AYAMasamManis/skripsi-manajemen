@@ -67,6 +67,8 @@ function CashFlowChart({ semuaTransaksi = [], isDarkMode }) {
   };
 
   return (
+    <section aria-labelledby="cash-flow-chart-title">
+      <h2 id="cash-flow-chart-title" style={{ margin: '0', padding: '22px 24px 0', fontFamily: 'Montserrat', fontSize: '12px', letterSpacing: '2px', color: isDarkMode ? '#f0f0f0' : '#1a1a1a' }}>DIAGRAM ARUS KAS TAHUN BERJALAN</h2>
     <div style={{ 
       width: '100%', 
       height: 300, 
@@ -107,6 +109,7 @@ function CashFlowChart({ semuaTransaksi = [], isDarkMode }) {
         </AreaChart>
       </ResponsiveContainer>
     </div>
+    </section>
   );
 }
 

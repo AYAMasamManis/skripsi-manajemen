@@ -6,10 +6,48 @@ include 'connection.php';
 // Menyamakan zona waktu
 date_default_timezone_set('Asia/Jakarta');
 
-// MENERIMA FILTER TAHUN (Default ke tahun sekarang jika tidak ada kiriman)
+// Filter laporan: bulanan (rincian harian), tahunan (rincian bulanan), atau periode khusus.
+$mode = isset($_GET['mode']) ? strtolower(trim($_GET['mode'])) : 'yearly';
+$allowed_modes = ['monthly', 'yearly', 'custom'];
+if (!in_array($mode, $allowed_modes, true)) {
+    $mode = 'yearly';
+}
+
 $tahun = isset($_GET['year']) ? (int)$_GET['year'] : (int)date('Y');
 if ($tahun < 2000 || $tahun > 2100) {
     $tahun = (int)date('Y');
+}
+$bulan = isset($_GET['month']) ? (int)$_GET['month'] : (int)date('m');
+if ($bulan < 1 || $bulan > 12) {
+    $bulan = (int)date('m');
+}
+
+$parseDate = static function ($value, $fallback) {
+    $date = DateTime::createFromFormat('Y-m-d', (string)$value);
+    return $date && $date->format('Y-m-d') === $value ? $value : $fallback;
+};
+
+if ($mode === 'monthly') {
+    $start_date = sprintf('%04d-%02d-01', $tahun, $bulan);
+    $end_date = date('Y-m-t', strtotime($start_date));
+    $group_format = '%Y-%m-%d';
+    $label_format = '%d %b %Y';
+} elseif ($mode === 'custom') {
+    $default_start = date('Y-m-01');
+    $default_end = date('Y-m-d');
+    $start_date = $parseDate($_GET['start_date'] ?? '', $default_start);
+    $end_date = $parseDate($_GET['end_date'] ?? '', $default_end);
+    if ($start_date > $end_date) {
+        [$start_date, $end_date] = [$end_date, $start_date];
+    }
+    $days = (int)((strtotime($end_date) - strtotime($start_date)) / 86400);
+    $group_format = $days > 62 ? '%Y-%m' : '%Y-%m-%d';
+    $label_format = $days > 62 ? '%b %Y' : '%d %b %Y';
+} else {
+    $start_date = sprintf('%04d-01-01', $tahun);
+    $end_date = sprintf('%04d-12-31', $tahun);
+    $group_format = '%Y-%m';
+    $label_format = '%b %Y';
 }
 
 $response = [
@@ -21,23 +59,26 @@ $response = [
  * 1. QUERY UNTUK BAR CHART & TABEL (DIFILTER PER TAHUN)
  */
 $sql_monthly = "SELECT 
-                    DATE_FORMAT(tanggal, '%M') as bulan,
+                    DATE_FORMAT(tanggal, '$label_format') as bulan,
                     SUM(CASE WHEN LOWER(jenis) = 'masuk' THEN jumlah ELSE 0 END) as income,
                     SUM(CASE WHEN LOWER(jenis) = 'keluar' THEN jumlah ELSE 0 END) as expense,
-                    MONTH(tanggal) as bulan_angka
+                    DATE_FORMAT(tanggal, '$group_format') as periode_urut
                 FROM transactions 
-                WHERE YEAR(tanggal) = '$tahun'
-                GROUP BY bulan_angka, bulan
-                ORDER BY bulan_angka ASC";
+                WHERE tanggal >= ? AND tanggal < DATE_ADD(?, INTERVAL 1 DAY)
+                GROUP BY periode_urut, bulan
+                ORDER BY periode_urut ASC";
 
-$res_monthly = $conn->query($sql_monthly);
+$stmt_monthly = $conn->prepare($sql_monthly);
+$stmt_monthly->bind_param('ss', $start_date, $end_date);
+$stmt_monthly->execute();
+$res_monthly = $stmt_monthly->get_result();
 
 if ($res_monthly) {
     while($row = $res_monthly->fetch_assoc()) {
         $income = (float)$row['income'];
         $expense = (float)$row['expense'];
         $response["monthly_stats"][] = [
-            "bulan" => $row['bulan'] . " " . $tahun,
+            "bulan" => $row['bulan'],
             "income" => $income,
             "expense" => $expense,
             "profit" => $income - $expense
@@ -68,12 +109,15 @@ $sql_category = "SELECT
                     SUM(jumlah) as value 
                  FROM transactions 
                  WHERE LOWER(jenis) = 'keluar' 
-                 AND YEAR(tanggal) = '$tahun'
+                 AND tanggal >= ? AND tanggal < DATE_ADD(?, INTERVAL 1 DAY)
                  GROUP BY name 
                  HAVING value > 0
                  ORDER BY value DESC";
 
-$res_category = $conn->query($sql_category);
+$stmt_category = $conn->prepare($sql_category);
+$stmt_category->bind_param('ss', $start_date, $end_date);
+$stmt_category->execute();
+$res_category = $stmt_category->get_result();
 
 if ($res_category) {
     while($row = $res_category->fetch_assoc()) {
@@ -83,6 +127,12 @@ if ($res_category) {
         ];
     }
 }
+
+$response['period'] = [
+    'mode' => $mode,
+    'start_date' => $start_date,
+    'end_date' => $end_date
+];
 
 // Kirim hasil akhir ke React
 echo json_encode($response);

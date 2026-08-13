@@ -4,6 +4,11 @@ header("Access-Control-Allow-Headers: *");
 header("Content-Type: application/json; charset=UTF-8");
 include 'db.php';
 
+$status_column = $conn->query("SHOW COLUMNS FROM payroll LIKE 'status_pembayaran'");
+if ($status_column && $status_column->num_rows === 0) {
+    $conn->query("ALTER TABLE payroll ADD COLUMN status_pembayaran VARCHAR(20) NOT NULL DEFAULT 'Dibayar'");
+}
+
 // Menyiapkan array penampung data
 $data = [];
 
@@ -23,6 +28,7 @@ $sql = "SELECT
             payroll.tanggal_bayar,
             payroll.bulan_gaji,  /* <--- TAMBAHKAN INI */
             payroll.tahun_gaji,  /* <--- TAMBAHKAN INI */
+            payroll.status_pembayaran,
             projects.nama_proyek 
         FROM payroll 
         LEFT JOIN projects ON payroll.project_id = projects.id 

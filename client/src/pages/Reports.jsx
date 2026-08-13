@@ -11,6 +11,9 @@ function Reports() {
     const [reportData, setReportData] = useState([])
     const [categoryData, setCategoryData] = useState([])
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+    const [reportMode, setReportMode] = useState('yearly')
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+    const [customPeriod, setCustomPeriod] = useState({ start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10), end: new Date().toISOString().slice(0, 10) })
     const [isDarkMode] = useState(localStorage.getItem('nightMode') === 'true')
     const [loading, setLoading] = useState(true)
 
@@ -23,7 +26,8 @@ function Reports() {
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axios.get(`get_monthly_reports.php?year=${selectedYear}&t=${Date.now()}`)
+            const params = new URLSearchParams({ mode: reportMode, year: selectedYear, month: selectedMonth, start_date: customPeriod.start, end_date: customPeriod.end, t: Date.now() })
+            const res = await axios.get(`get_monthly_reports.php?${params}`)
             if (res.data) {
                 setReportData(res.data.monthly_stats || []);
                 setCategoryData(res.data.category_distribution || []);
@@ -33,7 +37,7 @@ function Reports() {
             console.error("Gagal tarik data:", err);
             setLoading(false);
         }
-    }, [selectedYear])
+    }, [selectedYear, selectedMonth, reportMode, customPeriod.start, customPeriod.end])
 
     useEffect(() => { fetchData() }, [fetchData])
 
@@ -47,6 +51,9 @@ function Reports() {
     };
 
     const formatRupiah = (val) => "Rp " + (val || 0).toLocaleString('id-ID')
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    const periodLabel = reportMode === 'monthly' ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : reportMode === 'custom' ? `${customPeriod.start} s.d. ${customPeriod.end}` : `Tahun ${selectedYear}`
+    const totals = reportData.reduce((sum, item) => ({ income: sum.income + Number(item.income || 0), expense: sum.expense + Number(item.expense || 0), profit: sum.profit + Number(item.profit || 0) }), { income: 0, expense: 0, profit: 0 })
 
     const exportToExcel = () => {
         const wb = XLSX.utils.book_new();
@@ -60,7 +67,7 @@ function Reports() {
         ws2['!cols'] = [{wch:30}, {wch:25}];
         XLSX.utils.book_append_sheet(wb, ws1, "Kinerja Bulanan");
         XLSX.utils.book_append_sheet(wb, ws2, "Distribusi Pengeluaran");
-        XLSX.writeFile(wb, `VA_Fiscal_Report_${selectedYear}.xlsx`);
+        XLSX.writeFile(wb, `VA_Laporan_Laba_Rugi_${reportMode}_${selectedYear}.xlsx`);
     };
 
     const styles = `
@@ -72,6 +79,10 @@ function Reports() {
         /* FONT HALUS & MEWAH SEPERTI HOME.JSX */
         h1 { font-family: 'Montserrat', sans-serif; font-weight: 200; letter-spacing: 12px; text-transform: uppercase; color: ${theme.text}; margin: 0; }
         h2, h3, .btn-nav-action, .form-label, .year-select { font-family: 'Montserrat', sans-serif; }
+        .module-title { margin: 0 0 6px; font-size: 15px; letter-spacing: 2px; text-transform: uppercase; }
+        .module-subtitle { margin: 0 0 24px; color: ${theme.subText}; font-size: 11px; }
+        .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:30px; }
+        .summary-card { padding:22px; border-radius:20px; border:1px solid ${theme.border}; background:${theme.card}; }
 
         .container-reports { padding: 40px 20px; max-width: 1200px; margin: 0 auto; box-sizing: border-box; }
         
@@ -92,7 +103,7 @@ function Reports() {
         
         .table-va { width: 100%; border-collapse: collapse; font-size: 13px; }
         .table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-        .report-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .report-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items:center; }
         th { text-align: left; padding: 18px 15px; font-size: 11px; color: ${theme.text}; border-bottom: 2.5px solid ${theme.border}; letter-spacing: 1.5px; font-weight: 800; }
         td { padding: 22px 15px; border-bottom: 1px solid ${theme.border}; color: ${theme.text}; }
 
@@ -124,6 +135,7 @@ function Reports() {
         }
 
         @media (max-width: 1050px) { .chart-grid { grid-template-columns: 1fr !important; } }
+        @media (max-width: 700px) { .summary-grid { grid-template-columns:1fr; } }
         @media (max-width: 700px) { .container-reports { padding: 18px 12px 35px; } .top-nav { position: static; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px; } .report-actions { display: grid; grid-template-columns: 1fr 1fr; } .year-select { grid-column: 1 / -1; width: 100%; } .btn-nav-action { justify-content: center; padding: 11px 8px; } h1 { font-size: 24px; letter-spacing: 6px; overflow-wrap: anywhere; } .card-va { padding: 20px 14px; border-radius: 20px; } .chart-item { height: 320px !important; min-width: 0; } .table-va { min-width: 620px; } }
     `;
 
@@ -145,9 +157,10 @@ function Reports() {
                     <span>BERANDA</span>
                 </Link>
                 <div className="report-actions">
-                    <select className="year-select" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
-                        {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
+                    <select className="year-select" value={reportMode} onChange={(e) => setReportMode(e.target.value)}><option value="monthly">Per Bulan</option><option value="yearly">Per Tahun</option><option value="custom">Periode Tertentu</option></select>
+                    {reportMode !== 'custom' && <select className="year-select" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>{yearOptions.map(y => <option key={y} value={y}>{y}</option>)}</select>}
+                    {reportMode === 'monthly' && <select className="year-select" value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>{monthNames.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select>}
+                    {reportMode === 'custom' && <><input className="year-select" type="date" value={customPeriod.start} onChange={(e) => setCustomPeriod({...customPeriod, start:e.target.value})} /><input className="year-select" type="date" value={customPeriod.end} min={customPeriod.start} onChange={(e) => setCustomPeriod({...customPeriod, end:e.target.value})} /></>}
                     <button onClick={exportToExcel} className="btn-nav-action">
                         <span>EKSPOR EXCEL</span>
                     </button>
@@ -158,14 +171,19 @@ function Reports() {
             </div>
 
             <header style={{ textAlign: 'center', marginBottom: '60px' }}>
-                <h1>Analisis Keuangan</h1>
-                <p style={{ fontSize: '10px', color: theme.subText, letterSpacing: '6px', textTransform: 'uppercase', marginTop: '15px', fontFamily: 'Montserrat' }}>VA Construction • {selectedYear}</p>
+                <h1>Laporan Laba/Rugi</h1>
+                <p style={{ fontSize: '10px', color: theme.subText, letterSpacing: '4px', textTransform: 'uppercase', marginTop: '15px', fontFamily: 'Montserrat' }}>VA Construction • {periodLabel}</p>
             </header>
 
+            <section className="summary-grid" aria-label="Ringkasan laporan laba rugi">
+                <div className="summary-card"><span className="form-label">Total Pemasukan</span><strong>{formatRupiah(totals.income)}</strong></div>
+                <div className="summary-card"><span className="form-label">Total Pengeluaran</span><strong>{formatRupiah(totals.expense)}</strong></div>
+                <div className="summary-card"><span className="form-label">Laba / Rugi Bersih</span><strong style={{color:totals.profit >= 0 ? '#27ae60' : '#c0392b'}}>{totals.profit < 0 ? '-' : ''}{formatRupiah(Math.abs(totals.profit))}</strong></div>
+            </section>
+
             <div className="card-va">
-                <span className="form-label">Kinerja & Alokasi Aset</span>
                 <div className="chart-grid">
-                    <div className="chart-item" style={{ width: '100%', height: 400 }}>
+                    <div><h2 className="module-title">Diagram Pemasukan dan Pengeluaran</h2><p className="module-subtitle">Perbandingan arus keuangan • {periodLabel}</p><div className="chart-item" style={{ width: '100%', height: 400 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={reportData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke={theme.chartGrid} vertical={false} />
@@ -183,9 +201,9 @@ function Reports() {
                                 <Bar dataKey="expense" name="Pengeluaran" fill="#e74c3c" radius={[4, 4, 0, 0]} barSize={25} />
                             </BarChart>
                         </ResponsiveContainer>
-                    </div>
+                    </div></div>
 
-                    <div className="chart-item" style={{ width: '100%', height: 400 }}>
+                    <div><h2 className="module-title">Diagram Alokasi Pengeluaran</h2><p className="module-subtitle">Komposisi biaya berdasarkan kategori • {periodLabel}</p><div className="chart-item" style={{ width: '100%', height: 400 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie data={categoryData} innerRadius={70} outerRadius={100} paddingAngle={8} dataKey="value" stroke={theme.card} strokeWidth={3}>
@@ -201,12 +219,12 @@ function Reports() {
                                 />
                             </PieChart>
                         </ResponsiveContainer>
-                    </div>
+                    </div></div>
                 </div>
             </div>
 
             <div className="card-va" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '30px' }}><span className="form-label">Ringkasan Buku Besar Keuangan</span></div>
+                <div style={{ padding: '30px' }}><h2 className="module-title">Rincian Laba/Rugi</h2><p className="module-subtitle" style={{marginBottom:0}}>Buku besar keuangan • {periodLabel}</p></div>
                 <div className="table-scroll">
                     <table className="table-va">
                         <thead>
