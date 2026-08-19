@@ -10,6 +10,7 @@ import {
 function Reports() {
     const [reportData, setReportData] = useState([])
     const [categoryData, setCategoryData] = useState([])
+    const [completedProjects, setCompletedProjects] = useState([])
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
     const [reportMode, setReportMode] = useState('yearly')
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
@@ -31,6 +32,7 @@ function Reports() {
             if (res.data) {
                 setReportData(res.data.monthly_stats || []);
                 setCategoryData(res.data.category_distribution || []);
+                setCompletedProjects(res.data.completed_projects || []);
             }
             setLoading(false)
         } catch (err) {
@@ -53,12 +55,13 @@ function Reports() {
     const formatRupiah = (val) => "Rp " + (val || 0).toLocaleString('id-ID')
     const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
     const periodLabel = reportMode === 'monthly' ? `${monthNames[selectedMonth - 1]} ${selectedYear}` : reportMode === 'custom' ? `${customPeriod.start} s.d. ${customPeriod.end}` : `Tahun ${selectedYear}`
-    const totals = reportData.reduce((sum, item) => ({ income: sum.income + Number(item.income || 0), expense: sum.expense + Number(item.expense || 0), profit: sum.profit + Number(item.profit || 0) }), { income: 0, expense: 0, profit: 0 })
+    const totals = reportData.reduce((sum, item) => ({ income: sum.income + Number(item.income || 0), expense: sum.expense + Number(item.expense || 0) }), { income: 0, expense: 0 })
+    const completedProfit = completedProjects.reduce((sum, item) => sum + Number(item.profit || 0), 0)
 
     const exportToExcel = () => {
         const wb = XLSX.utils.book_new();
-        const monthlyData = reportData.map(d => [d.bulan, { v: d.income, t: 'n', z: 'Rp #,##0' }, { v: d.expense, t: 'n', z: 'Rp #,##0' }, { v: d.profit, t: 'n', z: 'Rp #,##0' }]);
-        monthlyData.unshift(["BULAN", "PEMASUKAN", "PENGELUARAN", "LABA BERSIH"]);
+        const monthlyData = reportData.map(d => [d.bulan, { v: d.income, t: 'n', z: 'Rp #,##0' }, { v: d.expense, t: 'n', z: 'Rp #,##0' }, { v: d.balance_change, t: 'n', z: 'Rp #,##0' }]);
+        monthlyData.unshift(["PERIODE", "PEMASUKAN", "PENGELUARAN", "PERUBAHAN SALDO"]);
         const ws1 = XLSX.utils.aoa_to_sheet(monthlyData);
         const categoryDataExcel = categoryData.map(d => [d.name, { v: d.value, t: 'n', z: 'Rp #,##0' }]);
         categoryDataExcel.unshift(["KATEGORI", "TOTAL PENGELUARAN"]);
@@ -67,6 +70,9 @@ function Reports() {
         ws2['!cols'] = [{wch:30}, {wch:25}];
         XLSX.utils.book_append_sheet(wb, ws1, "Kinerja Bulanan");
         XLSX.utils.book_append_sheet(wb, ws2, "Distribusi Pengeluaran");
+        const completedData = completedProjects.map(d => [d.nama_proyek, d.tanggal_selesai, d.income, d.expense, d.profit]);
+        completedData.unshift(["PROYEK SELESAI", "TANGGAL SELESAI", "PEMASUKAN", "PENGELUARAN", "LABA/RUGI"]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(completedData), "Laba Rugi Proyek Selesai");
         XLSX.writeFile(wb, `VA_Laporan_Laba_Rugi_${reportMode}_${selectedYear}.xlsx`);
     };
 
@@ -171,14 +177,14 @@ function Reports() {
             </div>
 
             <header style={{ textAlign: 'center', marginBottom: '60px' }}>
-                <h1>Laporan Laba/Rugi</h1>
+                <h1>Laporan Keuangan</h1>
                 <p style={{ fontSize: '10px', color: theme.subText, letterSpacing: '4px', textTransform: 'uppercase', marginTop: '15px', fontFamily: 'Montserrat' }}>VA Construction • {periodLabel}</p>
             </header>
 
-            <section className="summary-grid" aria-label="Ringkasan laporan laba rugi">
+            <section className="summary-grid" aria-label="Ringkasan arus kas dan laba rugi proyek selesai">
                 <div className="summary-card"><span className="form-label">Total Pemasukan</span><strong>{formatRupiah(totals.income)}</strong></div>
                 <div className="summary-card"><span className="form-label">Total Pengeluaran</span><strong>{formatRupiah(totals.expense)}</strong></div>
-                <div className="summary-card"><span className="form-label">Laba / Rugi Bersih</span><strong style={{color:totals.profit >= 0 ? '#27ae60' : '#c0392b'}}>{totals.profit < 0 ? '-' : ''}{formatRupiah(Math.abs(totals.profit))}</strong></div>
+                <div className="summary-card"><span className="form-label">Laba/Rugi Proyek Selesai</span><strong style={{color:completedProfit >= 0 ? '#27ae60' : '#c0392b'}}>{completedProfit < 0 ? '-' : ''}{formatRupiah(Math.abs(completedProfit))}</strong></div>
             </section>
 
             <div className="card-va">
@@ -224,7 +230,7 @@ function Reports() {
             </div>
 
             <div className="card-va" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ padding: '30px' }}><h2 className="module-title">Rincian Laba/Rugi</h2><p className="module-subtitle" style={{marginBottom:0}}>Buku besar keuangan • {periodLabel}</p></div>
+                <div style={{ padding: '30px' }}><h2 className="module-title">Arus Kas</h2><p className="module-subtitle" style={{marginBottom:0}}>Pemasukan, pengeluaran, dan perubahan saldo • {periodLabel}</p></div>
                 <div className="table-scroll">
                     <table className="table-va">
                         <thead>
@@ -232,7 +238,7 @@ function Reports() {
                                 <th>BULAN</th>
                                 <th style={{ textAlign: 'right' }}>PEMASUKAN</th>
                                 <th style={{ textAlign: 'right' }}>PENGELUARAN</th>
-                                <th style={{ textAlign: 'right' }}>HASIL BERSIH</th>
+                                <th style={{ textAlign: 'right' }}>PERUBAHAN SALDO</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -250,11 +256,11 @@ function Reports() {
                                             fontWeight: '900',
                                             color: '#ffffff',
                                             fontSize: '12px',
-                                            background: d.profit >= 0 
+                                            background: Number(d.balance_change) >= 0
                                                 ? (isDarkMode ? 'rgba(39, 174, 96, 0.9)' : '#27ae60') 
                                                 : (isDarkMode ? 'rgba(192, 57, 43, 0.9)' : '#c0392b')
                                         }}>
-                                            {(d.profit < 0 ? '-' : '') + formatRupiah(Math.abs(d.profit))}
+                                            {(Number(d.balance_change) < 0 ? '-' : '') + formatRupiah(Math.abs(Number(d.balance_change || 0)))}
                                         </span>
                                     </td>
                                 </tr>
@@ -262,6 +268,12 @@ function Reports() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+            <div className="card-va" style={{padding:0, overflow:'hidden', marginTop:'24px'}}>
+              <div style={{padding:'30px'}}><h2 className="module-title">Laba/Rugi Proyek Selesai</h2><p className="module-subtitle" style={{marginBottom:0}}>Hanya diakui setelah status proyek Selesai • {periodLabel}</p></div>
+              <div className="table-scroll"><table className="table-va"><thead><tr><th>PROYEK</th><th>SELESAI</th><th style={{textAlign:'right'}}>PEMASUKAN</th><th style={{textAlign:'right'}}>PENGELUARAN</th><th style={{textAlign:'right'}}>LABA/RUGI</th></tr></thead><tbody>
+                {completedProjects.length === 0 ? <tr><td colSpan="5" style={{textAlign:'center', color:theme.subText}}>Belum ada proyek selesai pada periode ini.</td></tr> : completedProjects.map(item => <tr key={item.id}><td style={{fontWeight:'800'}}>{item.nama_proyek}</td><td>{item.tanggal_selesai}</td><td style={{textAlign:'right'}}>{formatRupiah(item.income)}</td><td style={{textAlign:'right'}}>{formatRupiah(item.expense)}</td><td style={{textAlign:'right', fontWeight:'900', color:Number(item.profit)>=0?'#27ae60':'#c0392b'}}>{Number(item.profit)<0?'-':''}{formatRupiah(Math.abs(Number(item.profit)))}</td></tr>)}
+              </tbody></table></div>
             </div>
         </div>
     )

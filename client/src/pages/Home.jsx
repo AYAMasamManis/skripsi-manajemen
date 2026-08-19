@@ -9,14 +9,14 @@ function Home() {
   const [proyek, setProyek] = useState([])
   const [semuaTransaksi, setSemuaTransaksi] = useState([]) 
   const [projectPayData, setProjectPayData] = useState([])
-  const [stats, setStats] = useState({ total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0 });
+  const [stats, setStats] = useState({ total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0, total_income: 0, total_expense: 0, completed_profit: 0 });
   const [searchTerm, setSearchTerm] = useState('')
-  const [formData, setFormData] = useState({ nama_proyek: '', klien: '', budget_total: '' })
+  const [formData, setFormData] = useState({ nama_proyek: '', klien: '', budget_total: '', tanggal_mulai: '', tanggal_target: '' })
   const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('nightMode') === 'true');
   const [loading, setLoading] = useState(true);
 
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editData, setEditData] = useState({ id: '', nama_proyek: '', klien: '', budget_total: '', status: '' });
+  const [editData, setEditData] = useState({ id: '', nama_proyek: '', klien: '', budget_total: '', status: '', tanggal_mulai: '', tanggal_target: '', tanggal_selesai: '', progress_percent: 0 });
   const [showBudgetHistory, setShowBudgetHistory] = useState(false);
   const [budgetHistory, setBudgetHistory] = useState([]);
   const [historyProject, setHistoryProject] = useState(null);
@@ -27,7 +27,7 @@ function Home() {
   const navigate = useNavigate();
 
   // Pastikan role di database adalah 'admin', 'bos', atau 'owner' (huruf kecil)
-  const hasFullAccess = true;
+  const hasFullAccess = ['admin', 'bos', 'owner'].includes(String(userVa?.role || '').toLowerCase());
 
   const toggleNightMode = () => {
     const newMode = !isDarkMode;
@@ -48,7 +48,7 @@ function Home() {
       // Proteksi agar data selalu berupa array/object yang valid
       setProyek(Array.isArray(resProyek.data) ? resProyek.data : []);
       setSemuaTransaksi(Array.isArray(resTransaksi.data) ? resTransaksi.data : []);
-      setStats(resStats.data || { total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0 });
+      setStats(resStats.data || { total_projects: 0, active_projects: 0, total_balance: 0, total_debt: 0, total_income: 0, total_expense: 0, completed_profit: 0 });
       setProjectPayData(Array.isArray(resProjectPay.data) ? resProjectPay.data : []);
       
       setLoading(false);
@@ -69,26 +69,13 @@ function Home() {
 
   const formatNumber = (num) => num ? num.toString().split('.')[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "";
 
-  const hitungPersen = (idProyek, budget) => {
-    if (!Array.isArray(semuaTransaksi)) return 0;
+  const hitungPersen = (project) => Math.max(0, Math.min(100, Number(project?.progress_percent || 0)));
 
-    const expenses = semuaTransaksi.filter(t => t.project_id == idProyek && ['keluar', 'expense'].includes(t.jenis?.toLowerCase()));
-    const rabItems = expenses.filter((item) => Number(item.total_tagihan) > 0);
-    const totalRab = rabItems.reduce((total, item) => total + Number(item.total_tagihan || 0), 0);
-    if (totalRab > 0) {
-      const weightedProgress = rabItems.reduce((total, item) => {
-        const itemTotal = Number(item.total_tagihan) || 0;
-        const itemProgress = itemTotal > 0 ? Math.min(Number(item.jumlah || 0) / itemTotal, 1) : 0;
-        const itemWeight = itemTotal / totalRab;
-        return total + (itemWeight * itemProgress);
-      }, 0);
-      return Math.min(weightedProgress * 100, 100);
-    }
-
-    const pengeluaran = expenses.reduce((acc, curr) => acc + parseFloat(curr.jumlah || 0), 0);
-    if (!budget || budget == 0) return 0;
-    const persen = (pengeluaran / budget) * 100;
-    return persen > 100 ? 100 : persen;
+  const timeStatus = (project) => {
+    if (project.status === 'Selesai') return { label: `Selesai ${project.tanggal_selesai || ''}`.trim(), color: '#27ae60' };
+    if (!project.tanggal_target) return { label: 'Target belum diatur', color: theme.mutedText };
+    const overdue = new Date(`${project.tanggal_target}T23:59:59`) < new Date();
+    return { label: `${overdue ? 'Terlambat' : 'Target'} ${project.tanggal_target}`, color: overdue ? '#e74c3c' : '#e67e22' };
   };
 
   const handleChange = (e) => { 
@@ -103,7 +90,7 @@ function Home() {
     e.preventDefault()
     axios.post('add_project.php', { ...formData, changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' })
       .then(() => {
-        setFormData({ nama_proyek: '', klien: '', budget_total: '' })
+        setFormData({ nama_proyek: '', klien: '', budget_total: '', tanggal_mulai: '', tanggal_target: '' })
         fetchData()
       })
   }
@@ -115,7 +102,7 @@ function Home() {
         nama_proyek: p.nama_proyek, 
         klien: p.klien, 
         budget_total: cleanBudget, 
-        status: p.status || 'Perencanaan' 
+        status: p.status || 'Perencanaan', tanggal_mulai: p.tanggal_mulai || '', tanggal_target: p.tanggal_target || '', tanggal_selesai: p.tanggal_selesai || '', progress_percent: Number(p.progress_percent || 0)
     });
     setShowEditModal(true);
   };
@@ -353,8 +340,9 @@ function Home() {
           {Number(stats.total_balance || 0).toLocaleString('id-ID')}
         </h1>
         <div className="balance-summary">
-            <div style={{ color: '#2ecc71', fontWeight: 'bold' }}>▲ {stats.total_projects} PROYEK</div>
-            <div style={{ color: '#e74c3c', fontWeight: 'bold' }}>▼ IDR {Number(stats.total_debt || 0).toLocaleString('id-ID')} HUTANG</div>
+            <div style={{ color: '#2ecc71', fontWeight: 'bold' }}>MASUK Rp {Number(stats.total_income || 0).toLocaleString('id-ID')}</div>
+            <div style={{ color: '#e74c3c', fontWeight: 'bold' }}>KELUAR Rp {Number(stats.total_expense || 0).toLocaleString('id-ID')}</div>
+            <div style={{ color: Number(stats.completed_profit) >= 0 ? '#2ecc71' : '#e74c3c', fontWeight: 'bold' }}>LABA/RUGI SELESAI Rp {Number(stats.completed_profit || 0).toLocaleString('id-ID')}</div>
         </div>
       </div>
 
@@ -394,6 +382,10 @@ function Home() {
                   <button type="button" onClick={downloadProjectTemplate} className="btn-nav">TEMPLATE</button>
                   <button type="button" onClick={() => importInputRef.current?.click()} disabled={importing} className="btn-nav">{importing ? 'MENGIMPOR...' : 'IMPOR'}</button>
                 </div>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'20px'}}>
+                  <div><label style={{fontSize:'9px', color:theme.mutedText, fontWeight:'700'}}>MULAI</label><input type="date" name="tanggal_mulai" value={formData.tanggal_mulai} onChange={handleChange} className="input-home" /></div>
+                  <div><label style={{fontSize:'9px', color:theme.mutedText, fontWeight:'700'}}>TARGET</label><input type="date" name="tanggal_target" min={formData.tanggal_mulai || undefined} value={formData.tanggal_target} onChange={handleChange} className="input-home" /></div>
+                </div>
                 <input ref={importInputRef} type="file" accept=".xlsx,.xls" onChange={handleImportExcel} style={{display:'none'}} />
               </div>
 
@@ -431,15 +423,16 @@ function Home() {
                   
                   <div style={{ width: '100%', maxWidth: '300px', height: '6px', background: isDarkMode ? '#222' : '#eee', borderRadius: '10px', marginTop: '15px', overflow: 'hidden' }}>
                     <div style={{ 
-                        width: `${hitungPersen(item.id, item.budget_total)}%`, 
+                        width: `${hitungPersen(item)}%`,
                         height: '100%', 
-                        background: hitungPersen(item.id, item.budget_total) > 90 ? '#e74c3c' : '#27ae60', 
+                        background: '#27ae60',
                         transition: '1.5s cubic-bezier(0.16, 1, 0.3, 1)' 
                     }} />
                   </div>
                   <div style={{ fontSize: '9px', marginTop: '8px', opacity: 0.6, fontWeight: '700' }}>
-                    {Math.round(hitungPersen(item.id, item.budget_total))}% BUDGET TERPAKAI
+                    {hitungPersen(item).toFixed(1)}% PROGRES PROYEK
                   </div>
+                  <div style={{fontSize:'9px', marginTop:'6px', fontWeight:'700', color:timeStatus(item).color}}>{timeStatus(item).label.toUpperCase()}</div>
                 </div>
 
                 <div className="project-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -500,6 +493,14 @@ function Home() {
                             <option value="Berjalan">Berjalan</option>
                             <option value="Selesai">Selesai</option>
                         </select>
+                    </div>
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px'}}>
+                      <div><label style={{fontSize:'10px', fontWeight:'700', color:theme.mutedText}}>MULAI</label><input type="date" className="input-home" value={editData.tanggal_mulai} onChange={e => setEditData({...editData, tanggal_mulai:e.target.value})} /></div>
+                      <div><label style={{fontSize:'10px', fontWeight:'700', color:theme.mutedText}}>TARGET</label><input type="date" className="input-home" min={editData.tanggal_mulai || undefined} value={editData.tanggal_target} onChange={e => setEditData({...editData, tanggal_target:e.target.value})} /></div>
+                    </div>
+                    <div>
+                      <label style={{fontSize:'10px', fontWeight:'700', color:theme.mutedText}}>PROGRES PROYEK ({Number(editData.progress_percent).toFixed(1)}%)</label>
+                      <input type="range" min="0" max="100" step="0.1" value={editData.progress_percent} onChange={e => setEditData({...editData, progress_percent:Number(e.target.value)})} style={{width:'100%'}} />
                     </div>
                     <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                         <button type="button" onClick={() => setShowEditModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '15px', border: `1px solid ${theme.border}`, background: 'none', color: theme.text, fontWeight:'700', fontSize:'11px' }}>BATAL</button>

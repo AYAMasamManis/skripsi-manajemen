@@ -2,6 +2,8 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 include 'connection.php';
+include_once 'project_revision_schema.php';
+ensureProjectRevisionSchema($conn);
 
 // Menyamakan zona waktu
 date_default_timezone_set('Asia/Jakarta');
@@ -52,7 +54,8 @@ if ($mode === 'monthly') {
 
 $response = [
     "monthly_stats" => [],
-    "category_distribution" => []
+    "category_distribution" => [],
+    "completed_projects" => []
 ];
 
 /**
@@ -81,7 +84,7 @@ if ($res_monthly) {
             "bulan" => $row['bulan'],
             "income" => $income,
             "expense" => $expense,
-            "profit" => $income - $expense
+            "balance_change" => $income - $expense
         ];
     }
 }
@@ -126,6 +129,34 @@ if ($res_category) {
             "value" => (float)$row['value']
         ];
     }
+}
+
+// Laba/rugi baru diakui ketika proyek berstatus selesai. Nilainya dihitung
+// dari seluruh arus kas proyek, lalu masuk periode berdasarkan tanggal selesai.
+$sql_completed = "SELECT p.id, p.nama_proyek, p.tanggal_selesai,
+                         COALESCE(SUM(CASE WHEN LOWER(t.jenis) = 'masuk' THEN t.jumlah ELSE 0 END), 0) AS income,
+                         COALESCE(SUM(CASE WHEN LOWER(t.jenis) = 'keluar' THEN t.jumlah ELSE 0 END), 0) AS expense
+                  FROM projects p
+                  LEFT JOIN transactions t ON t.project_id = p.id
+                  WHERE LOWER(p.status) = 'selesai'
+                    AND p.tanggal_selesai >= ? AND p.tanggal_selesai < DATE_ADD(?, INTERVAL 1 DAY)
+                  GROUP BY p.id, p.nama_proyek, p.tanggal_selesai
+                  ORDER BY p.tanggal_selesai DESC, p.id DESC";
+$stmt_completed = $conn->prepare($sql_completed);
+$stmt_completed->bind_param('ss', $start_date, $end_date);
+$stmt_completed->execute();
+$res_completed = $stmt_completed->get_result();
+while ($row = $res_completed->fetch_assoc()) {
+    $income = (float)$row['income'];
+    $expense = (float)$row['expense'];
+    $response['completed_projects'][] = [
+        'id' => (int)$row['id'],
+        'nama_proyek' => $row['nama_proyek'],
+        'tanggal_selesai' => $row['tanggal_selesai'],
+        'income' => $income,
+        'expense' => $expense,
+        'profit' => $income - $expense,
+    ];
 }
 
 $response['period'] = [

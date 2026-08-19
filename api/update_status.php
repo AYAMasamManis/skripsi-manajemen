@@ -4,6 +4,8 @@ header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
 include 'connection.php';
+include_once 'project_revision_schema.php';
+ensureProjectRevisionSchema($conn);
 
 // Handling request OPTIONS (CORS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
@@ -15,12 +17,12 @@ if (!empty($data['id']) && !empty($data['status'])) {
     $status = $data['status'];
 
     // --- GUNAKAN PREPARED STATEMENT ---
-    $sql = "UPDATE projects SET status = ? WHERE id = ?";
+    $sql = "UPDATE projects SET status = ?, tanggal_selesai = CASE WHEN ? = 'Selesai' THEN COALESCE(tanggal_selesai, CURDATE()) ELSE NULL END, progress_percent = CASE WHEN ? = 'Selesai' THEN 100 ELSE progress_percent END WHERE id = ?";
     
     $stmt = $conn->prepare($sql);
     
     // "s" untuk status (string), "i" untuk id (integer)
-    $stmt->bind_param("si", $status, $id);
+    $stmt->bind_param("sssi", $status, $status, $status, $id);
 
     if ($stmt->execute()) {
         echo json_encode([

@@ -5,6 +5,8 @@ header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json"); // Tambahkan ini agar sinkron dengan fetch di React
 
 include 'connection.php';
+include_once 'project_revision_schema.php';
+ensureProjectRevisionSchema($conn);
 
 // Handling request OPTIONS (CORS)
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
@@ -19,17 +21,19 @@ if (!empty($data['nama_proyek']) && !empty($data['klien'])) {
     $klien       = $data['klien'];
     $budget      = isset($data['budget_total']) ? $data['budget_total'] : 0;
     $status      = "Perencanaan"; // Default status
+    $tanggal_mulai = !empty($data['tanggal_mulai']) ? $data['tanggal_mulai'] : null;
+    $tanggal_target = !empty($data['tanggal_target']) ? $data['tanggal_target'] : null;
 
     // 2. --- GUNAKAN PREPARED STATEMENT ---
     // Menggunakan tanda tanya (?) sebagai placeholder
-    $sql = "INSERT INTO projects (nama_proyek, klien, budget_total, status) VALUES (?, ?, ?, ?)";
+    $sql = "INSERT INTO projects (nama_proyek, klien, budget_total, status, tanggal_mulai, tanggal_target) VALUES (?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql);
 
     // 3. Bind Parameter
     // s = string, d = double/angka. 
     // Urutan: nama_proyek (s), klien (s), budget_total (d), status (s)
-    $stmt->bind_param("ssds", $nama_proyek, $klien, $budget, $status);
+    $stmt->bind_param("ssdsss", $nama_proyek, $klien, $budget, $status, $tanggal_mulai, $tanggal_target);
 
     // 4. Eksekusi
     if ($stmt->execute()) {

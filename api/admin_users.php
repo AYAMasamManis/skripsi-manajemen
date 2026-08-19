@@ -70,6 +70,31 @@ if ($action === 'reset_password') {
     exit;
 }
 
+if ($action === 'create_employee') {
+    $username = strtolower(trim($data['username'] ?? ''));
+    $fullName = trim($data['nama_lengkap'] ?? '');
+    $newPassword = trim($data['new_password'] ?? '');
+    if (!preg_match('/^[a-z0-9._-]{3,50}$/', $username) || $fullName === '' || strlen($newPassword) < 8) {
+        http_response_code(422);
+        echo json_encode(['status' => 'error', 'message' => 'Username minimal 3 karakter, nama wajib diisi, dan kata sandi minimal 8 karakter.']);
+        exit;
+    }
+    $exists = $conn->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+    $exists->bind_param('s', $username);
+    $exists->execute();
+    if ($exists->get_result()->fetch_assoc()) {
+        http_response_code(409);
+        echo json_encode(['status' => 'error', 'message' => 'Username sudah digunakan.']);
+        exit;
+    }
+    $hash = md5($newPassword);
+    $role = 'karyawan';
+    $stmt = $conn->prepare('INSERT INTO users (username, password, nama_lengkap, role) VALUES (?, ?, ?, ?)');
+    $stmt->bind_param('ssss', $username, $hash, $fullName, $role);
+    $stmt->execute();
+    echo json_encode(['status' => 'success', 'message' => 'Akun karyawan berhasil dibuat.', 'id' => $conn->insert_id]);
+    exit;
+}
+
 http_response_code(400);
 echo json_encode(["status" => "error", "message" => "Aksi tidak dikenali."]);
-

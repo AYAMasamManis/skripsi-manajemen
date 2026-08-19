@@ -21,6 +21,7 @@ function ProjectDetail() {
   const [progressFotos, setProgressFotos] = useState([])
   const [fotoProgress, setFotoProgress] = useState(null)
   const [ketProgress, setKetProgress] = useState('')
+  const [monitoring, setMonitoring] = useState({ progress_percent: 0, tanggal_mulai: '', tanggal_target: '' })
 
   const [formData, setFormData] = useState({ 
     jenis: 'Keluar', kategori: '', jumlah: '', total_tagihan: '0', 
@@ -49,6 +50,7 @@ function ProjectDetail() {
 
       if (currentProject) {
         setProjectInfo(currentProject);
+        setMonitoring({progress_percent:Number(currentProject.progress_percent || 0), tanggal_mulai:currentProject.tanggal_mulai || '', tanggal_target:currentProject.tanggal_target || ''});
         setTransaksi(resTrans.data || []);
         setProgressFotos(resProgress.data || []);
       }
@@ -195,6 +197,14 @@ function ProjectDetail() {
 
   const handleUpdateStatus = (newStatus) => {
     axios.post('update_status.php', { id, status: newStatus }).then(() => fetchData());
+  }
+
+  const handleMonitoring = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('update_project_monitoring.php', {id, ...monitoring});
+      alert(res.data.message); await fetchData();
+    } catch (err) { alert(err.response?.data?.message || 'Gagal memperbarui monitoring proyek.'); }
   }
 
   const downloadImportTemplate = () => {
@@ -519,6 +529,16 @@ function ProjectDetail() {
                 </p>
             </div>
         </div>
+      </div>
+
+      <div className="card-va no-print" style={{marginBottom:'40px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', gap:'20px', flexWrap:'wrap', alignItems:'center', marginBottom:'18px'}}><div><span className="form-label">Monitoring Waktu & Progres</span><div style={{fontSize:'28px', fontWeight:'800', marginTop:'8px'}}>{Number(monitoring.progress_percent).toFixed(1)}%</div></div><div style={{fontSize:'11px', color:'#888'}}>Mulai: {monitoring.tanggal_mulai || '-'} • Target: {monitoring.tanggal_target || '-'}</div></div>
+        <form onSubmit={handleMonitoring} style={{display:'grid', gridTemplateColumns:'1fr 1fr 2fr auto', gap:'12px', alignItems:'end'}}>
+          <div><label className="form-label">Mulai</label><input type="date" value={monitoring.tanggal_mulai} onChange={e=>setMonitoring({...monitoring,tanggal_mulai:e.target.value})} /></div>
+          <div><label className="form-label">Target</label><input type="date" min={monitoring.tanggal_mulai || undefined} value={monitoring.tanggal_target} onChange={e=>setMonitoring({...monitoring,tanggal_target:e.target.value})} /></div>
+          <div><label className="form-label">Progres Pekerjaan</label><input type="range" min="0" max="100" step="0.1" value={monitoring.progress_percent} onChange={e=>setMonitoring({...monitoring,progress_percent:Number(e.target.value)})} style={{width:'100%'}} /></div>
+          <button className="btn-save" type="submit" style={{padding:'12px 20px'}}>SIMPAN</button>
+        </form>
       </div>
 
       <div className="card-va no-print" style={{ marginBottom: '40px' }}>

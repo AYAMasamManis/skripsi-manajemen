@@ -22,6 +22,7 @@ function Settings() {
   const [users, setUsers] = useState([]);
   const [resetData, setResetData] = useState({ user_id: '', new_password: '', confirmation: '' });
   const [adminLoading, setAdminLoading] = useState(false);
+  const [employeeData, setEmployeeData] = useState({ username: '', nama_lengkap: '', new_password: '' });
 
   const [message, setMessage] = useState('');
   const isAdmin = userVa?.role?.toLowerCase() === 'admin';
@@ -86,6 +87,16 @@ function Settings() {
     } finally {
       setAdminLoading(false);
     }
+  };
+
+  const handleCreateEmployee = async (e) => {
+    e.preventDefault(); setAdminLoading(true); setMessage('');
+    try {
+      const res = await axios.post('admin_users.php', { action:'create_employee', admin_id:userVa?.id, admin_password:adminPassword, ...employeeData });
+      setMessage(res.data.message); setEmployeeData({username:'', nama_lengkap:'', new_password:''});
+      await loadUsers();
+    } catch (err) { setMessage(getErrorMessage(err, 'Gagal membuat akun karyawan.')); }
+    finally { setAdminLoading(false); }
   };
 
   const handleUpdate = (e) => {
@@ -340,6 +351,13 @@ function Settings() {
             <input type="password" className="settings-input" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} autoComplete="current-password" required />
             <button type="button" className="btn-save-settings" onClick={loadUsers} disabled={adminLoading || !adminPassword}>{adminLoading ? 'MEMPROSES...' : 'TAMPILKAN PENGGUNA'}</button>
             {users.length > 0 && (
+              <>
+              <form onSubmit={handleCreateEmployee} style={{marginTop:'28px', paddingTop:'24px', borderTop:`1px solid ${theme.border}`}}>
+                <h3 className="section-title">Buat Akun Karyawan</h3>
+                <div className="password-grid"><div><label className="form-label">Nama Lengkap</label><input className="settings-input" value={employeeData.nama_lengkap} onChange={e=>setEmployeeData({...employeeData,nama_lengkap:e.target.value})} required /></div><div><label className="form-label">Username</label><input className="settings-input" minLength="3" value={employeeData.username} onChange={e=>setEmployeeData({...employeeData,username:e.target.value.toLowerCase().replace(/\s/g,'')})} required /></div></div>
+                <label className="form-label">Kata Sandi Awal</label><input type="password" minLength="8" className="settings-input" value={employeeData.new_password} onChange={e=>setEmployeeData({...employeeData,new_password:e.target.value})} required />
+                <button type="submit" className="btn-save-settings" disabled={adminLoading}>BUAT AKUN KARYAWAN</button>
+              </form>
               <form onSubmit={handleAdminReset} style={{marginTop:'28px', paddingTop:'24px', borderTop:`1px solid ${theme.border}`}}>
                 <label className="form-label">Akun yang Direset</label>
                 <select className="settings-input" value={resetData.user_id} onChange={(e) => setResetData({...resetData, user_id: e.target.value})} required>
@@ -352,6 +370,7 @@ function Settings() {
                 </div>
                 <button type="submit" className="btn-save-settings" disabled={adminLoading}>{adminLoading ? 'MEMPROSES...' : 'RESET KATA SANDI'}</button>
               </form>
+              </>
             )}
           </section>
         )}

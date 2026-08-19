@@ -2,12 +2,17 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 include 'connection.php';
+include_once 'project_revision_schema.php';
+ensureProjectRevisionSchema($conn);
 
 $response = [
     "total_projects" => 0,
     "active_projects" => 0,
     "total_balance" => 0,
-    "total_debt" => 0
+    "total_debt" => 0,
+    "total_income" => 0,
+    "total_expense" => 0,
+    "completed_profit" => 0
 ];
 
 try {
@@ -23,13 +28,27 @@ try {
 
     // 2. Hitung Total Saldo (Uang Masuk - Uang Keluar)
     // Gunakan LOWER(jenis) agar sinkron dengan file yang kita buat sebelumnya
-    $sql_balance = "SELECT 
-                        SUM(CASE WHEN LOWER(jenis) = 'masuk' THEN jumlah ELSE 0 END) - 
-                        SUM(CASE WHEN LOWER(jenis) = 'keluar' THEN jumlah ELSE 0 END) as balance 
+    $sql_balance = "SELECT
+                        COALESCE(SUM(CASE WHEN LOWER(jenis) = 'masuk' THEN jumlah ELSE 0 END), 0) AS income,
+                        COALESCE(SUM(CASE WHEN LOWER(jenis) = 'keluar' THEN jumlah ELSE 0 END), 0) AS expense
                     FROM transactions";
     $res_balance = $conn->query($sql_balance);
     $data_balance = $res_balance->fetch_assoc();
-    $response["total_balance"] = (float)$data_balance['balance'];
+    $response["total_income"] = (float)$data_balance['income'];
+    $response["total_expense"] = (float)$data_balance['expense'];
+    $response["total_balance"] = $response["total_income"] - $response["total_expense"];
+
+    $sql_profit = "SELECT COALESCE(SUM(x.income - x.expense), 0) AS completed_profit
+                   FROM (
+                       SELECT p.id,
+                              COALESCE(SUM(CASE WHEN LOWER(t.jenis) = 'masuk' THEN t.jumlah ELSE 0 END), 0) AS income,
+                              COALESCE(SUM(CASE WHEN LOWER(t.jenis) = 'keluar' THEN t.jumlah ELSE 0 END), 0) AS expense
+                       FROM projects p
+                       LEFT JOIN transactions t ON t.project_id = p.id
+                       WHERE LOWER(p.status) = 'selesai'
+                       GROUP BY p.id
+                   ) x";
+    $response["completed_profit"] = (float)$conn->query($sql_profit)->fetch_assoc()['completed_profit'];
 
     // 3. Hitung Total Hutang Vendor (Total Tagihan - Yang Sudah Dibayar)
     $sql_debt = "SELECT SUM(total_tagihan - jumlah) as total_hutang 

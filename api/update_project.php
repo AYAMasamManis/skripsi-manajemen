@@ -3,6 +3,8 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: *");
 header("Content-Type: application/json; charset=UTF-8");
 include 'db.php';
+include_once 'project_revision_schema.php';
+ensureProjectRevisionSchema($conn);
 
 // Mendapatkan data JSON dari React
 $data = json_decode(file_get_contents("php://input"));
@@ -13,6 +15,16 @@ if ($data && isset($data->id)) {
     $klien = $data->klien;
     $budget = (float)$data->budget_total;
     $status = $data->status;
+    $tanggalMulai = !empty($data->tanggal_mulai) ? $data->tanggal_mulai : null;
+    $tanggalTarget = !empty($data->tanggal_target) ? $data->tanggal_target : null;
+    $tanggalSelesai = !empty($data->tanggal_selesai) ? $data->tanggal_selesai : null;
+    $progressPercent = isset($data->progress_percent) ? max(0, min(100, (float)$data->progress_percent)) : 0;
+    if (strtolower($status) === 'selesai') {
+        $tanggalSelesai = $tanggalSelesai ?: date('Y-m-d');
+        $progressPercent = 100;
+    } else {
+        $tanggalSelesai = null;
+    }
     $changedBy = isset($data->changed_by) && trim($data->changed_by) !== '' ? trim($data->changed_by) : 'Bos';
 
     $current = $conn->prepare("SELECT budget_total FROM projects WHERE id = ?");
@@ -32,14 +44,18 @@ if ($data && isset($data->id)) {
             nama_proyek = ?, 
             klien = ?, 
             budget_total = ?, 
-            status = ? 
+            status = ?,
+            tanggal_mulai = ?,
+            tanggal_target = ?,
+            tanggal_selesai = ?,
+            progress_percent = ?
             WHERE id = ?";
 
     $stmt = $conn->prepare($sql);
 
     // s = string, d = double (untuk budget), i = integer (untuk id)
     // Urutan: nama (s), klien (s), budget (d), status (s), id (i)
-    $stmt->bind_param("ssdsi", $nama, $klien, $budget, $status, $id);
+    $stmt->bind_param("ssdssssdi", $nama, $klien, $budget, $status, $tanggalMulai, $tanggalTarget, $tanggalSelesai, $progressPercent, $id);
 
     if ($stmt->execute()) {
         $oldBudget = (float)$currentBudget['budget_total'];
