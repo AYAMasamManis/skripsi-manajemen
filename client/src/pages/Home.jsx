@@ -342,7 +342,7 @@ function Home() {
         <div className="balance-summary">
             <div style={{ color: '#2ecc71', fontWeight: 'bold' }}>MASUK Rp {Number(stats.total_income || 0).toLocaleString('id-ID')}</div>
             <div style={{ color: '#e74c3c', fontWeight: 'bold' }}>KELUAR Rp {Number(stats.total_expense || 0).toLocaleString('id-ID')}</div>
-            <div style={{ color: Number(stats.completed_profit) >= 0 ? '#2ecc71' : '#e74c3c', fontWeight: 'bold' }}>LABA/RUGI SELESAI Rp {Number(stats.completed_profit || 0).toLocaleString('id-ID')}</div>
+            <div style={{ color: Number(stats.completed_profit) >= 0 ? '#2ecc71' : '#e74c3c', fontWeight: 'bold' }}>LABA PROYEK SELESAI Rp {Number(stats.completed_profit || 0).toLocaleString('id-ID')}</div>
         </div>
       </div>
 

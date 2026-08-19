@@ -71,9 +71,9 @@ function Reports() {
         XLSX.utils.book_append_sheet(wb, ws1, "Kinerja Bulanan");
         XLSX.utils.book_append_sheet(wb, ws2, "Distribusi Pengeluaran");
         const completedData = completedProjects.map(d => [d.nama_proyek, d.tanggal_selesai, d.income, d.expense, d.profit]);
-        completedData.unshift(["PROYEK SELESAI", "TANGGAL SELESAI", "PEMASUKAN", "PENGELUARAN", "LABA/RUGI"]);
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(completedData), "Laba Rugi Proyek Selesai");
-        XLSX.writeFile(wb, `VA_Laporan_Laba_Rugi_${reportMode}_${selectedYear}.xlsx`);
+        completedData.unshift(["PROYEK SELESAI", "TANGGAL SELESAI", "PEMASUKAN", "PENGELUARAN", "LABA"]);
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(completedData), "Laba Proyek Selesai");
+        XLSX.writeFile(wb, `VA_Laporan_Laba_${reportMode}_${selectedYear}.xlsx`);
     };
 
     const styles = `
@@ -181,10 +181,10 @@ function Reports() {
                 <p style={{ fontSize: '10px', color: theme.subText, letterSpacing: '4px', textTransform: 'uppercase', marginTop: '15px', fontFamily: 'Montserrat' }}>VA Construction • {periodLabel}</p>
             </header>
 
-            <section className="summary-grid" aria-label="Ringkasan arus kas dan laba rugi proyek selesai">
+            <section className="summary-grid" aria-label="Ringkasan arus kas dan laba proyek selesai">
                 <div className="summary-card"><span className="form-label">Total Pemasukan</span><strong>{formatRupiah(totals.income)}</strong></div>
                 <div className="summary-card"><span className="form-label">Total Pengeluaran</span><strong>{formatRupiah(totals.expense)}</strong></div>
-                <div className="summary-card"><span className="form-label">Laba/Rugi Proyek Selesai</span><strong style={{color:completedProfit >= 0 ? '#27ae60' : '#c0392b'}}>{completedProfit < 0 ? '-' : ''}{formatRupiah(Math.abs(completedProfit))}</strong></div>
+                <div className="summary-card"><span className="form-label">Laba Proyek Selesai</span><strong style={{color:completedProfit >= 0 ? '#27ae60' : '#c0392b'}}>{completedProfit < 0 ? '-' : ''}{formatRupiah(Math.abs(completedProfit))}</strong></div>
             </section>
 
             <div className="card-va">
@@ -270,8 +270,8 @@ function Reports() {
                 </div>
             </div>
             <div className="card-va" style={{padding:0, overflow:'hidden', marginTop:'24px'}}>
-              <div style={{padding:'30px'}}><h2 className="module-title">Laba/Rugi Proyek Selesai</h2><p className="module-subtitle" style={{marginBottom:0}}>Hanya diakui setelah status proyek Selesai • {periodLabel}</p></div>
-              <div className="table-scroll"><table className="table-va"><thead><tr><th>PROYEK</th><th>SELESAI</th><th style={{textAlign:'right'}}>PEMASUKAN</th><th style={{textAlign:'right'}}>PENGELUARAN</th><th style={{textAlign:'right'}}>LABA/RUGI</th></tr></thead><tbody>
+              <div style={{padding:'30px'}}><h2 className="module-title">Laba Proyek Selesai</h2><p className="module-subtitle" style={{marginBottom:0}}>Hanya diakui setelah status proyek Selesai • {periodLabel}</p></div>
+              <div className="table-scroll"><table className="table-va"><thead><tr><th>PROYEK</th><th>SELESAI</th><th style={{textAlign:'right'}}>PEMASUKAN</th><th style={{textAlign:'right'}}>PENGELUARAN</th><th style={{textAlign:'right'}}>LABA</th></tr></thead><tbody>
                 {completedProjects.length === 0 ? <tr><td colSpan="5" style={{textAlign:'center', color:theme.subText}}>Belum ada proyek selesai pada periode ini.</td></tr> : completedProjects.map(item => <tr key={item.id}><td style={{fontWeight:'800'}}>{item.nama_proyek}</td><td>{item.tanggal_selesai}</td><td style={{textAlign:'right'}}>{formatRupiah(item.income)}</td><td style={{textAlign:'right'}}>{formatRupiah(item.expense)}</td><td style={{textAlign:'right', fontWeight:'900', color:Number(item.profit)>=0?'#27ae60':'#c0392b'}}>{Number(item.profit)<0?'-':''}{formatRupiah(Math.abs(Number(item.profit)))}</td></tr>)}
               </tbody></table></div>
             </div>

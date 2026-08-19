@@ -131,7 +131,7 @@ if ($res_category) {
     }
 }
 
-// Laba/rugi baru diakui ketika proyek berstatus selesai. Nilainya dihitung
+// Laba baru diakui ketika proyek berstatus selesai. Nilainya dihitung
 // dari seluruh arus kas proyek, lalu masuk periode berdasarkan tanggal selesai.
 $sql_completed = "SELECT p.id, p.nama_proyek, p.tanggal_selesai,
                          COALESCE(SUM(CASE WHEN LOWER(t.jenis) = 'masuk' THEN t.jumlah ELSE 0 END), 0) AS income,
