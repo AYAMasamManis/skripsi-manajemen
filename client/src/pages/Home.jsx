@@ -21,6 +21,7 @@ function Home() {
   const [budgetHistory, setBudgetHistory] = useState([]);
   const [historyProject, setHistoryProject] = useState(null);
   const [importing, setImporting] = useState(false);
+  const [submittingProject, setSubmittingProject] = useState(false);
   const importInputRef = useRef(null);
 
   const userVa = JSON.parse(localStorage.getItem('user_va'));
@@ -86,13 +87,30 @@ function Home() {
     } else setFormData({ ...formData, [name]: value });
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    axios.post('add_project.php', { ...formData, changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos' })
-      .then(() => {
-        setFormData({ nama_proyek: '', klien: '', budget_total: '', tanggal_mulai: '', tanggal_target: '' })
-        fetchData()
-      })
+    if (submittingProject) return;
+
+    setSubmittingProject(true);
+    try {
+      const response = await axios.post('add_project.php', {
+        ...formData,
+        changed_by: userVa?.nama_lengkap || userVa?.username || 'Bos',
+      });
+
+      if (response.data?.status !== 'success') {
+        throw new Error(response.data?.message || 'Proyek gagal ditambahkan.');
+      }
+
+      setFormData({ nama_proyek: '', klien: '', budget_total: '', tanggal_mulai: '', tanggal_target: '' });
+      await fetchData();
+      alert(response.data.message || 'Proyek berhasil ditambahkan.');
+    } catch (err) {
+      console.error('Gagal menambahkan proyek:', err);
+      alert(err.response?.data?.message || err.message || 'Gagal menambahkan proyek. Periksa koneksi API dan database.');
+    } finally {
+      setSubmittingProject(false);
+    }
   }
 
   const handleEditClick = (p) => {
@@ -372,7 +390,9 @@ function Home() {
                   <label style={{fontSize:'9px', color:theme.mutedText, fontWeight:'700'}}>NILAI KONTRAK (IDR)</label>
                   <input name="budget_total" value={formatNumber(formData.budget_total)} onChange={handleChange} required className="input-home" style={{fontSize: '18px', fontWeight: '700'}} />
                 </div>
-                <button type="submit" style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', padding: '16px', borderRadius: '15px', cursor: 'pointer', fontWeight: '800', width: '100%', fontSize: '11px' }}>TAMBAHKAN PROYEK</button>
+                <button type="submit" disabled={submittingProject} style={{ background: theme.accent, color: isDarkMode ? '#000' : '#fff', border: 'none', padding: '16px', borderRadius: '15px', cursor: submittingProject ? 'wait' : 'pointer', fontWeight: '800', width: '100%', fontSize: '11px', opacity: submittingProject ? 0.65 : 1 }}>
+                  {submittingProject ? 'MENYIMPAN...' : 'TAMBAHKAN PROYEK'}
+                </button>
               </form>
 
               <div className="import-panel">

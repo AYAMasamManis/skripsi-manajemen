@@ -14,12 +14,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
 // Mengambil data yang dikirim oleh React (format JSON)
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (!empty($data['nama_proyek']) && !empty($data['klien'])) {
+if (!is_array($data)) {
+    http_response_code(400);
+    echo json_encode(["status" => "error", "message" => "Format data proyek tidak valid."]);
+    exit;
+}
+
+if (!empty(trim((string)($data['nama_proyek'] ?? ''))) && !empty(trim((string)($data['klien'] ?? '')))) {
     
     // 1. Tangkap data
     $nama_proyek = $data['nama_proyek'];
     $klien       = $data['klien'];
-    $budget      = isset($data['budget_total']) ? $data['budget_total'] : 0;
+    $budget      = isset($data['budget_total']) ? filter_var($data['budget_total'], FILTER_VALIDATE_FLOAT) : 0;
+    if ($budget === false || $budget < 0) {
+        http_response_code(422);
+        echo json_encode(["status" => "error", "message" => "Nilai kontrak harus berupa angka nol atau lebih."]);
+        exit;
+    }
     $status      = "Perencanaan"; // Default status
     $tanggal_mulai = !empty($data['tanggal_mulai']) ? $data['tanggal_mulai'] : null;
     $tanggal_target = !empty($data['tanggal_target']) ? $data['tanggal_target'] : null;
@@ -54,11 +65,13 @@ if (!empty($data['nama_proyek']) && !empty($data['klien'])) {
         $history->close();
         echo json_encode(["status" => "success", "message" => "Proyek berhasil ditambahkan", "id" => $project_id]);
     } else {
-        echo json_encode(["message" => "Gagal menambahkan: " . $stmt->error]);
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "Gagal menambahkan proyek: " . $stmt->error]);
     }
 
     $stmt->close();
 } else {
-    echo json_encode(["message" => "Data tidak lengkap"]);
+    http_response_code(422);
+    echo json_encode(["status" => "error", "message" => "Nama proyek dan klien wajib diisi."]);
 }
 ?>
