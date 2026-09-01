@@ -101,7 +101,7 @@ try {
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
     $stmt1 = $conn->prepare($sql_payroll);
-    $stmt1->bind_param("issidddsiiiss", $project_id, $nama, $jabatan, $hari, $gaji, $kasbon, $total_diterima, $tanggal_bayar, $bulan_gaji, $tahun_gaji, $status_payroll, $updated_by);
+    $stmt1->bind_param("issidddsiiss", $project_id, $nama, $jabatan, $hari, $gaji, $kasbon, $total_diterima, $tanggal_bayar, $bulan_gaji, $tahun_gaji, $status_payroll, $updated_by);
 
     if (!$stmt1->execute()) {
         throw new Exception('Gagal simpan payroll: ' . $stmt1->error);
