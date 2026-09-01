@@ -52,8 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$data = json_decode(file_get_contents("php://input"), true);
-if (!$data) {
+$rawInput = file_get_contents('php://input');
+$data = json_decode($rawInput, true);
+
+if (!is_array($data) || empty($data)) {
+    $data = $_POST;
+}
+
+if (!is_array($data) || empty($data)) {
+    $rawText = trim((string)$rawInput);
+    if ($rawText !== '') {
+        parse_str($rawText, $data);
+    }
+}
+
+if (!is_array($data) || empty($data)) {
     http_response_code(400);
     echo json_encode(["status" => "error", "message" => "Request body tidak valid"]);
     exit;
