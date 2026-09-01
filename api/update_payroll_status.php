@@ -103,7 +103,7 @@ try {
             $insertTx = $conn->prepare("INSERT INTO transactions (project_id, jenis, kategori, jumlah, total_tagihan, vendor, status_pembayaran, pic, keterangan, tanggal, bukti, source_type, source_id, last_updated_at)
                                          VALUES (?, 'Keluar', 'Upah', ?, ?, 'Payroll', ?, 'Sistem', ?, ?, NULL, 'payroll', ?, NOW())");
             $tanggal = date('Y-m-d');
-            $insertTx->bind_param("iddsisii", $payroll['project_id'], (float)$payroll['total_diterima'], (float)$payroll['total_diterima'], $status, $keterangan, $tanggal, $id);
+            $insertTx->bind_param("iddsssi", $payroll['project_id'], (float)$payroll['total_diterima'], (float)$payroll['total_diterima'], $status, $keterangan, $tanggal, $id);
             $insertTx->execute();
             $insertTx->close();
         }

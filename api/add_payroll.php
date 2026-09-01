@@ -83,11 +83,12 @@ try {
     $status_payroll = 'Dibayar';
     $keterangan     = buildPayrollDescription($nama, $jabatan, $bulan_gaji, $tahun_gaji);
 
+    $updated_by = 'Sistem';
     $sql_payroll = "INSERT INTO payroll (project_id, nama_karyawan, jabatan, hari_kerja, gaji_perhari, kasbon, total_diterima, tanggal_bayar, bulan_gaji, tahun_gaji, status_pembayaran, last_updated_by, last_updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Sistem', NOW())";
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
 
     $stmt1 = $conn->prepare($sql_payroll);
-    $stmt1->bind_param("issidddsiiis", $project_id, $nama, $jabatan, $hari, $gaji, $kasbon, $total_diterima, $tanggal_bayar, $bulan_gaji, $tahun_gaji, $status_payroll);
+    $stmt1->bind_param("issidddsiiiss", $project_id, $nama, $jabatan, $hari, $gaji, $kasbon, $total_diterima, $tanggal_bayar, $bulan_gaji, $tahun_gaji, $status_payroll, $updated_by);
 
     if (!$stmt1->execute()) {
         throw new Exception('Gagal simpan payroll: ' . $stmt1->error);
@@ -115,7 +116,7 @@ try {
                           VALUES (?, 'Keluar', 'Upah', ?, ?, 'Payroll', ?, 'Sistem', ?, ?, NULL, 'payroll', ?, NOW())";
 
         $stmt2 = $conn->prepare($sql_transaksi);
-        $stmt2->bind_param("iddsisii", $project_id, $total_diterima, $total_diterima, $status_payroll, $keterangan, $tanggal_bayar, $payroll_id);
+        $stmt2->bind_param("iddsssi", $project_id, $total_diterima, $total_diterima, $status_payroll, $keterangan, $tanggal_bayar, $payroll_id);
 
         if (!$stmt2->execute()) {
             throw new Exception('Gagal menambahkan transaksi ke saldo utama: ' . $stmt2->error);
