@@ -1,59 +1,57 @@
 <?php
-http_response_code(405);
 header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json; charset=UTF-8");
-echo json_encode(["status" => "error", "message" => "Riwayat payroll tidak dapat dihapus. Gunakan pembaruan status."]);
-exit;
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: *");
-header("Content-Type: application/json");
-include 'db.php';
+include 'connection.php';
 
-$data = json_decode(file_get_contents("php://input"));
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit; }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(["status" => "error", "message" => "Metode tidak didukung"]);
+    exit;
+}
 
-if($data && isset($data->id)) {
-    $id = $data->id;
+$data = json_decode(file_get_contents('php://input'), true) ?: $_POST;
+if (!isset($data['id'])) {
+    http_response_code(400);
+    echo json_encode(["status" => "error", "message" => "ID payroll tidak valid"]);
+    exit;
+}
 
-    // 1. Ambil info dulu untuk referensi penghapusan di tabel transaksi
-    $stmt_get = $conn->prepare("SELECT nama_karyawan, jabatan, total_diterima FROM payroll WHERE id = ?");
+$id = (int)$data['id'];
+$conn->begin_transaction();
+
+try {
+    $stmt_get = $conn->prepare("SELECT project_id, nama_karyawan, jabatan, total_diterima, bulan_gaji, tahun_gaji FROM payroll WHERE id = ?");
     $stmt_get->bind_param("i", $id);
     $stmt_get->execute();
-    $result = $stmt_get->get_result();
-    $info = $result->fetch_assoc();
-
-    if ($info) {
-        $nama = $info['nama_karyawan'];
-        $jabatan = $info['jabatan'];
-        $jumlah = $info['total_diterima'];
-        
-        // PERBAIKAN: Gunakan wildcard % di depan dan belakang nama
-        // Ini akan menangkap "Gaji: Nama", "Gaji Karyawan: Nama", dsb.
-        $search_ket = "%" . $nama . "%"; 
-
-        // 2. Hapus di tabel payroll
-        $stmt_pay = $conn->prepare("DELETE FROM payroll WHERE id = ?");
-        $stmt_pay->bind_param("i", $id);
-        
-        if($stmt_pay->execute()) {
-            
-            // 3. Hapus juga di tabel transactions agar SALDO BALIK
-            $jenis = 'keluar'; 
-            $stmt_trans = $conn->prepare("DELETE FROM transactions WHERE keterangan LIKE ? AND jumlah = ? AND jenis = ?");
-            $stmt_trans->bind_param("sds", $search_ket, $jumlah, $jenis);
-            $stmt_trans->execute();
-            
-            echo json_encode(["status" => "success", "message" => "Data gaji terhapus & saldo telah disinkronkan"]);
-            
-            $stmt_trans->close();
-        } else {
-            echo json_encode(["status" => "error", "message" => "Gagal menghapus data"]);
-        }
-        $stmt_pay->close();
-    } else {
-        echo json_encode(["status" => "error", "message" => "Data tidak ditemukan"]);
-    }
+    $payroll = $stmt_get->get_result()->fetch_assoc();
     $stmt_get->close();
-} else {
-    echo json_encode(["status" => "error", "message" => "ID tidak valid"]);
+
+    if (!$payroll) {
+        throw new Exception('Data payroll tidak ditemukan.');
+    }
+
+    $keterangan = "Gaji Karyawan: {$payroll['nama_karyawan']} ({$payroll['jabatan']}) Periode {$payroll['bulan_gaji']}/{$payroll['tahun_gaji']}";
+
+    $delete_txn = $conn->prepare("DELETE FROM transactions WHERE project_id = ? AND LOWER(jenis) = 'keluar' AND LOWER(kategori) = 'upah' AND ABS(jumlah - ?) < 0.01 AND keterangan = ?");
+    $delete_txn->bind_param("ids", $payroll['project_id'], (float)$payroll['total_diterima'], $keterangan);
+    $delete_txn->execute();
+    $delete_txn->close();
+
+    $delete_payroll = $conn->prepare("DELETE FROM payroll WHERE id = ?");
+    $delete_payroll->bind_param("i", $id);
+    if (!$delete_payroll->execute()) {
+        throw new Exception('Gagal menghapus data payroll: ' . $delete_payroll->error);
+    }
+    $delete_payroll->close();
+
+    $conn->commit();
+    echo json_encode(["status" => "success", "message" => "Data gaji dihapus dan saldo utama telah dikembalikan."]);
+} catch (Exception $e) {
+    $conn->rollback();
+    http_response_code(400);
+    echo json_encode(["status" => "error", "message" => $e->getMessage()]);
 }
 ?>
